@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrazione Utente</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- LOGO -->
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Les Klips" class="logo">
+        </div>
+
+        <h2>Registrazione Utente</h2>
+
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% endif %}
+
+        <form method="post">
+            <label for="name">Nome:</label>
+            <input type="text" id="name" name="name" placeholder="Il tuo nome" required>
+
+            <label for="surname">Cognome:</label>
+            <input type="text" id="surname" name="surname" placeholder="Il tuo cognome" required>
+
+            <label for="phone">Telefono:</label>
+            <input type="text" id="phone" name="phone" placeholder="Numero di telefono" required>
+
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" placeholder="Indirizzo email" required>
+
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" placeholder="Scegli uno username" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" placeholder="Scegli una password" required>
+            
+            <label for="confirm_password">Conferma Password:</label>
+            <input type="password" id="confirm_password" name="confirm_password" placeholder="Ripeti la password" required>
+
+            <button type="submit" class="big-btn">Registrati</button>
+        </form>
+
+        <a href="{{ url_for('index') }}">Torna alla Home</a>
+    </div>
+</body>
+</html>
