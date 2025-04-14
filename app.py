@@ -756,11 +756,12 @@ def admin_get_day_slots():
     conn = sqlite3.connect('bookings.db')
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT users.name, users.phone, appointments.service, appointments.time, appointments.id, appointments.barber
-        FROM appointments
-        JOIN users ON users.id = appointments.user_id
-        WHERE appointments.date = ?
+    SELECT users.name, users.phone, appointments.service, appointments.time, appointments.id, appointments.barber
+    FROM appointments
+    JOIN users ON users.id = appointments.user_id
+    WHERE appointments.date = ? AND appointments.tipo = 'barbiere'
     """, (date,))
+
     records = cursor.fetchall()
     conn.close()
 
