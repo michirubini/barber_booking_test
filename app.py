@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify # type: ignore
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -514,7 +514,7 @@ def admin_dashboard():
     conn.close()
     return render_template('admin_dashboard.html', appointments=appointments)
 
-from flask import request, session, redirect, url_for, render_template
+from flask import request, session, redirect, url_for, render_template # type: ignore
 from datetime import datetime, timedelta
 import sqlite3
 import smtplib
@@ -1110,7 +1110,7 @@ def export_history_csv():
     # Genera CSV
     import csv
     from io import StringIO
-    from flask import make_response
+    from flask import make_response # type: ignore
 
     si = StringIO()
     writer = csv.writer(si)
@@ -1252,3 +1252,4 @@ def admin_book():
 
 if __name__ == '__main__':
     app.run(debug=True)
+

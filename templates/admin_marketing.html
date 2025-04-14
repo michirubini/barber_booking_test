@@ -7,11 +7,14 @@
   <style>
     textarea { width: 100%; min-height: 150px; margin-top: 10px; }
     .user-box { border-bottom: 1px solid #ddd; padding: 8px 0; }
+    #filters { margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+    #filters input[type="text"] { padding: 5px; width: 250px; }
+    #filters button, .group-actions button { padding: 6px 12px; cursor: pointer; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>✉️ Invia Email Promozionale</h2>
+    <h2>📢 Invia Email Promozionale</h2>
 
     <form method="post">
       <label for="subject">Oggetto Email:</label>
@@ -20,22 +23,61 @@
       <label for="message">Messaggio:</label>
       <textarea name="message" required placeholder="Scrivi qui il messaggio da inviare..."></textarea>
 
-      <h3>Destinatari (utenti con consenso newsletter):</h3>
-      {% for user in users %}
-        <div class="user-box">
-          <label>
-            <input type="checkbox" name="selected_users" value="{{ user[1] }}"> 
-            {{ user[0] }} ({{ user[1] }})
-          </label>
+      <!-- 🔍 FILTRI -->
+      <div id="filters">
+        <input type="text" id="search" placeholder="Cerca per nome o email...">
+        <div class="group-actions">
+          <button type="button" onclick="selectAll()">Seleziona tutti</button>
+          <button type="button" onclick="deselectAll()">Deseleziona tutti</button>
         </div>
-      {% else %}
-        <p>Nessun utente ha acconsentito a ricevere comunicazioni.</p>
-      {% endfor %}
+      </div>
+
+      <!-- ✅ LISTA DESTINATARI -->
+      <div id="user-list">
+        {% for user in users %}
+          <div class="user-box">
+            <label>
+              <input type="checkbox" name="selected_users" value="{{ user[1] }}">
+              <span class="user-name">{{ user[0] }}</span> (<span class="user-email">{{ user[1] }}</span>)
+            </label>
+          </div>
+        {% else %}
+          <p>Nessun utente ha acconsentito a ricevere comunicazioni.</p>
+        {% endfor %}
+      </div>
 
       <button type="submit" class="big-btn" style="margin-top: 20px;">📤 Invia Email</button>
     </form>
 
-    <a href="{{ url_for('admin_dashboard') }}">← Torna alla Dashboard</a>
+    <a href="{{ url_for('admin_dashboard') }}" style="display: block; margin-top: 15px;">← Torna alla Dashboard</a>
   </div>
+
+  <!-- ✅ JS per filtro live e selezione -->
+  <script>
+    const searchInput = document.getElementById('search');
+    const userList = document.getElementById('user-list');
+
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.toLowerCase();
+      const users = userList.querySelectorAll('.user-box');
+      users.forEach(user => {
+        const name = user.querySelector('.user-name').textContent.toLowerCase();
+        const email = user.querySelector('.user-email').textContent.toLowerCase();
+        if (name.includes(query) || email.includes(query)) {
+          user.style.display = '';
+        } else {
+          user.style.display = 'none';
+        }
+      });
+    });
+
+    function selectAll() {
+      document.querySelectorAll('input[type="checkbox"][name="selected_users"]:not(:disabled)').forEach(cb => cb.checked = true);
+    }
+
+    function deselectAll() {
+      document.querySelectorAll('input[type="checkbox"][name="selected_users"]').forEach(cb => cb.checked = false);
+    }
+  </script>
 </body>
 </html>
