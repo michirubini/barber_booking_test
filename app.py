@@ -590,11 +590,11 @@ def edit_appointment(appointment_id):
     conn = sqlite3.connect('bookings.db')
     cursor = conn.cursor()
 
-    # 🔍 Carica appuntamento
+    # 🔍 Carica appuntamento (incluso 'tipo')
     if 'admin' in session:
-        cursor.execute("SELECT id, service, date, time, barber FROM appointments WHERE id = ?", (appointment_id,))
+        cursor.execute("SELECT id, service, date, time, barber, tipo FROM appointments WHERE id = ?", (appointment_id,))
     else:
-        cursor.execute("SELECT id, service, date, time, barber FROM appointments WHERE id = ? AND user_id = ?",
+        cursor.execute("SELECT id, service, date, time, barber, tipo FROM appointments WHERE id = ? AND user_id = ?",
                        (appointment_id, session['user_id']))
 
     appointment = cursor.fetchone()
@@ -602,12 +602,15 @@ def edit_appointment(appointment_id):
         conn.close()
         return redirect(url_for('admin_dashboard' if 'admin' in session else 'user_dashboard'))
 
+    tipo = appointment[5]
+
     # ⛔️ Blocco modifica troppo vicina per l'utente
     if 'user_id' in session:
         appointment_datetime = datetime.strptime(f"{appointment[2]} {appointment[3]}", "%Y-%m-%d %H:%M")
         if datetime.now() > appointment_datetime - timedelta(hours=1):
             conn.close()
-            return render_template("edit_appointment.html", appointment=appointment,
+            template = 'edit_appointment_hair.html' if tipo == 'parrucchiera' else 'edit_appointment.html'
+            return render_template(template, appointment=appointment,
                                    error="Non puoi modificare l'appuntamento meno di un'ora prima.")
 
     if request.method == 'POST':
@@ -620,32 +623,34 @@ def edit_appointment(appointment_id):
                        (new_date, new_time, appointment_id))
         if cursor.fetchone()[0] >= 2:
             conn.close()
-            return render_template("edit_appointment.html", appointment=appointment,
+            template = 'edit_appointment_hair.html' if tipo == 'parrucchiera' else 'edit_appointment.html'
+            return render_template(template, appointment=appointment,
                                    error="Fascia oraria piena.")
 
         # 🛠️ Se admin, aggiorna anche il barbiere
         if 'admin' in session:
             new_barber = request.form['barber']
-            cursor.execute("UPDATE appointments SET service = ?, date = ?, time = ?, barber = ? WHERE id = ?",
-                           (new_service, new_date, new_time, new_barber, appointment_id))
+            cursor.execute("""
+                UPDATE appointments 
+                SET service = ?, date = ?, time = ?, barber = ? 
+                WHERE id = ?
+            """, (new_service, new_date, new_time, new_barber, appointment_id))
         else:
-            cursor.execute("UPDATE appointments SET service = ?, date = ?, time = ? WHERE id = ?",
-                           (new_service, new_date, new_time, appointment_id))
+            cursor.execute("""
+                UPDATE appointments 
+                SET service = ?, date = ?, time = ? 
+                WHERE id = ?
+            """, (new_service, new_date, new_time, appointment_id))
 
         conn.commit()
         conn.close()
 
-        # 🔁 Redirect: priorità all'admin
-        if 'admin' in session:
-            return redirect(url_for('admin_dashboard'))
-        elif 'user_id' in session:
-            return redirect(url_for('user_dashboard'))
-        else:
-            return redirect(url_for('index'))
+        # 🔁 Redirect
+        return redirect(url_for('admin_dashboard' if 'admin' in session else 'user_dashboard'))
 
     conn.close()
-    return render_template('edit_appointment.html', appointment=appointment)
-
+    template = 'edit_appointment_hair.html' if tipo == 'parrucchiera' and 'admin' in session else 'edit_appointment.html'
+    return render_template(template, appointment=appointment)
 
 
 @app.route('/delete_appointment/<int:appointment_id>', methods=['POST'])
