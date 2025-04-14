@@ -43,6 +43,13 @@ try:
 except sqlite3.OperationalError:
     print("[INFO] La colonna 'tipo' esiste già nella tabella appointments")
 
+try:
+    cursor.execute("ALTER TABLE users ADD COLUMN newsletter_optin INTEGER DEFAULT 0")
+    print("[OK] Colonna 'newsletter_optin' aggiunta")
+except sqlite3.OperationalError:
+    print("[INFO] La colonna 'newsletter_optin' esiste già")
+
+
 # Salvataggio e chiusura
 conn.commit()
 conn.close()

@@ -274,8 +274,16 @@ def register():
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form['confirm_password']
+        
+        # ✅ Privacy obbligatoria
+        privacy = request.form.get('privacy')
+        if not privacy:
+            return render_template('register.html', error="È necessario accettare il trattamento dei dati personali.")
 
-        # Controllo se le password coincidono
+        # ✅ Newsletter facoltativa
+        newsletter = 1 if request.form.get('newsletter') == 'on' else 0
+
+        # ❌ Controllo se le password coincidono
         if password != confirm_password:
             return render_template('register.html', error="Le password non coincidono.")
 
@@ -294,11 +302,11 @@ def register():
             conn.close()
             return render_template('register.html', error="Email già registrata")
 
-        # ✅ Inserimento nuovo utente
+        # ✅ Inserimento nuovo utente con flag newsletter
         cursor.execute("""
-            INSERT INTO users (username, password, name, surname, phone, email)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (username, password, name, surname, phone, email))
+            INSERT INTO users (username, password, name, surname, phone, email, newsletter_optin)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (username, password, name, surname, phone, email, newsletter))
 
         conn.commit()
         conn.close()

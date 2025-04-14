@@ -20,31 +20,52 @@
         {% endif %}
 
         <form method="post">
+
+            <!-- Dati utente -->
             <label for="name">Nome:</label>
             <input type="text" id="name" name="name" placeholder="Il tuo nome" required>
-
+          
             <label for="surname">Cognome:</label>
             <input type="text" id="surname" name="surname" placeholder="Il tuo cognome" required>
-
+          
             <label for="phone">Telefono:</label>
             <input type="text" id="phone" name="phone" placeholder="Numero di telefono" required>
-
+          
             <label for="email">Email:</label>
             <input type="email" id="email" name="email" placeholder="Indirizzo email" required>
-
+          
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" placeholder="Scegli uno username" required>
-
+          
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" placeholder="Scegli una password" required>
             
             <label for="confirm_password">Conferma Password:</label>
             <input type="password" id="confirm_password" name="confirm_password" placeholder="Ripeti la password" required>
-
-            <button type="submit" class="big-btn">Registrati</button>
-        </form>
-
-        <a href="{{ url_for('index') }}">Torna alla Home</a>
-    </div>
-</body>
-</html>
+          
+            <!-- ✅ Informativa privacy -->
+            <div style="margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; background-color: #fdfdfd;">
+              <h4 style="margin-top: 0;">Informativa sul trattamento dei dati personali</h4>
+              <div style="max-height: 120px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
+                Ai sensi dell’articolo 13 del Regolamento UE 2016/679 (GDPR), ti informiamo che i tuoi dati saranno trattati da Les Klips Hair & Barber esclusivamente per finalità legate all’erogazione dei servizi richiesti (prenotazione, comunicazioni operative, accesso al profilo).<br><br>
+                I dati non saranno ceduti a terzi e verranno conservati secondo normativa. In qualsiasi momento puoi richiedere la modifica o la cancellazione dei tuoi dati contattandoci.<br><br>
+                Per maggiori dettagli consulta l’informativa completa o contattaci.
+              </div>
+              <label style="display: block; margin-top: 10px;">
+                <input type="checkbox" name="privacy" required>
+                Dichiaro di aver letto e accettato l’informativa sulla privacy *
+              </label>
+            </div>
+          
+            <!-- ✅ Newsletter -->
+            <div style="margin-top: 15px;">
+              <label>
+                <input type="checkbox" name="newsletter">
+                Acconsento a ricevere comunicazioni promozionali e offerte via email
+              </label>
+            </div>
+          
+            <button type="submit" class="big-btn" style="margin-top: 20px;">Registrati</button>
+          </form>
+          
+          <a href="{{ url_for('index') }}" style="display: block; margin-top: 15px;">Torna alla Home</a>
