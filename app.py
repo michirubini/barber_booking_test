@@ -356,7 +356,15 @@ def admin_marketing():
                 print(f"Errore invio a {email}: {e}")
 
         conn.close()
-        return f"✅ Email inviate con successo a {success} utenti."
+        return f"""
+    <div style='padding: 30px; font-family: sans-serif; text-align: center;'>
+        <h2>✅ Email inviate con successo a {success} utenti.</h2>
+        <a href='{url_for('admin_dashboard')}'>
+            <button style='margin-top: 20px; padding: 10px 20px; font-size: 16px; border-radius: 8px;'>← Torna alla Dashboard Admin</button>
+        </a>
+    </div>
+"""
+
 
     # GET: carica utenti newsletter
     cursor.execute("SELECT name || ' ' || surname, email FROM users WHERE newsletter_optin = 1")
