@@ -263,6 +263,22 @@ Il team Les Klips Hair & Barber
     except Exception as e:
         print("❌ Errore nell'invio dell'email:", e)
 
+def invia_email_marketing(destinatario, oggetto, corpo):
+    mittente = 'rubinimc@gmail.com'
+    password = 'mtgk jhxz wagn wicg'
+
+    msg = MIMEMultipart()
+    msg['From'] = mittente
+    msg['To'] = destinatario
+    msg['Subject'] = oggetto
+    msg.attach(MIMEText(corpo, 'plain'))
+
+    server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+    server.login(mittente, password)
+    server.send_message(msg)
+    server.quit()
+
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -317,6 +333,37 @@ def register():
         return redirect(url_for('login_user'))
 
     return render_template('register.html')
+
+@app.route('/admin_marketing', methods=['GET', 'POST'])
+def admin_marketing():
+    if 'admin' not in session:
+        return redirect(url_for('login_admin'))
+
+    conn = sqlite3.connect('bookings.db')
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        subject = request.form.get('subject')
+        message = request.form.get('message')
+        selected_emails = request.form.getlist('selected_users')
+
+        success = 0
+        for email in selected_emails:
+            try:
+                invia_email_marketing(email, subject, message)
+                success += 1
+            except Exception as e:
+                print(f"Errore invio a {email}: {e}")
+
+        conn.close()
+        return f"✅ Email inviate con successo a {success} utenti."
+
+    # GET: carica utenti newsletter
+    cursor.execute("SELECT name || ' ' || surname, email FROM users WHERE newsletter_optin = 1")
+    users = cursor.fetchall()
+    conn.close()
+
+    return render_template('admin_marketing.html', users=users)
 
 
 @app.route('/user_dashboard')

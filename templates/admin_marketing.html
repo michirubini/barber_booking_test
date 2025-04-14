@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invio Comunicazioni Marketing</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    textarea { width: 100%; min-height: 150px; margin-top: 10px; }
+    .user-box { border-bottom: 1px solid #ddd; padding: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>✉️ Invia Email Promozionale</h2>
+
+    <form method="post">
+      <label for="subject">Oggetto Email:</label>
+      <input type="text" name="subject" id="subject" required>
+
+      <label for="message">Messaggio:</label>
+      <textarea name="message" required placeholder="Scrivi qui il messaggio da inviare..."></textarea>
+
+      <h3>Destinatari (utenti con consenso newsletter):</h3>
+      {% for user in users %}
+        <div class="user-box">
+          <label>
+            <input type="checkbox" name="selected_users" value="{{ user[1] }}"> 
+            {{ user[0] }} ({{ user[1] }})
+          </label>
+        </div>
+      {% else %}
+        <p>Nessun utente ha acconsentito a ricevere comunicazioni.</p>
+      {% endfor %}
+
+      <button type="submit" class="big-btn" style="margin-top: 20px;">📤 Invia Email</button>
+    </form>
+
+    <a href="{{ url_for('admin_dashboard') }}">← Torna alla Dashboard</a>
+  </div>
+</body>
+</html>
