@@ -356,22 +356,43 @@ def admin_marketing():
                 print(f"Errore invio a {email}: {e}")
 
         conn.close()
+
         return f"""
-    <div style='padding: 30px; font-family: sans-serif; text-align: center;'>
-        <h2>✅ Email inviate con successo a {success} utenti.</h2>
-        <a href='{url_for('admin_dashboard')}'>
-            <button style='margin-top: 20px; padding: 10px 20px; font-size: 16px; border-radius: 8px;'>← Torna alla Dashboard Admin</button>
-        </a>
-    </div>
-"""
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="5;url={url_for('admin_dashboard')}">
+            <style>
+                body {{
+                    font-family: sans-serif;
+                    text-align: center;
+                    padding: 50px;
+                }}
+                button {{
+                    margin-top: 20px;
+                    padding: 10px 20px;
+                    font-size: 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                }}
+            </style>
+        </head>
+        <body>
+            <h2>✅ Email inviate con successo a {success} utenti.</h2>
+            <p>Verrai reindirizzato alla dashboard tra 5 secondi...</p>
+            <a href="{url_for('admin_dashboard')}">
+                <button>← Torna subito alla Dashboard</button>
+            </a>
+        </body>
+        </html>
+        """
 
-
-    # GET: carica utenti newsletter
+    # GET: mostra utenti che hanno accettato newsletter
     cursor.execute("SELECT name || ' ' || surname, email FROM users WHERE newsletter_optin = 1")
     users = cursor.fetchall()
     conn.close()
 
     return render_template('admin_marketing.html', users=users)
+
 
 
 @app.route('/user_dashboard')
