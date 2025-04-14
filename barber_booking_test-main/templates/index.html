@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barbershop Booking</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+
+    <!-- LOGO -->
+    <div class="logo-container">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Les Klips" class="logo">
+    </div>
+
+    <div class="center-text">
+      <div class="emoji"></div>
+      <h1>Benvenuto nel sistema di prenotazione di Les Klips Hair & Barber</h1>
+    </div>
+
+    <a href="{{ url_for('login_user') }}"><button class="big-btn">Accedi come Cliente</button></a>
+    <a href="{{ url_for('register') }}"><button class="big-btn">Registrati</button></a>
+    <a href="{{ url_for('login_admin') }}"><button class="big-btn">Accedi come Admin</button></a>
+  </div>
+</body>
+</html>

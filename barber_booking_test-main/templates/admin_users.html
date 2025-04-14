@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestione Utenti</title>
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #fdf6ee;
+      font-family: sans-serif;
+    }
+
+    .page {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 40px auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .dashboard-link {
+      display: inline-block;
+      margin: 10px 0 30px 0;
+      padding: 10px 20px;
+      background-color: #a6794e;
+      color: white;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+
+    .dashboard-link:hover {
+      background-color: #a6794e;
+      color: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    table th, table td {
+      padding: 8px 10px;
+      text-align: left;
+      border: 1px solid #ccc;
+    }
+
+    table th {
+      background-color: #e8d8c3;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .big-btn, .delete-btn {
+      width: 100%;
+      padding: 10px 16px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .big-btn {
+      background-color: #a6794e;
+    }
+
+    .delete-btn {
+      background-color: #7b2f3c !important;
+    }
+
+    .delete-btn:hover {
+      background-color: #652431 !important;
+    }
+
+    .big-btn:hover {
+      opacity: 0.9;
+    }
+
+    .bulk-delete {
+      margin-top: 30px;
+      display: flex;
+      justify-content: flex-end;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="container">
+      <h2>Utenti Registrati</h2>
+      <a class="dashboard-link" href="{{ url_for('admin_dashboard') }}">&larr; Torna alla Dashboard</a>
+
+      <a href="{{ url_for('admin_add_user') }}" style="display: inline-block; margin-bottom: 25px;">
+  <button class="big-btn" style="width: auto; padding: 10px 20px;">➕ Aggiungi Cliente</button>
+</a>
+
+
+      {% if users %}
+      <form method="post" action="{{ url_for('delete_selected_users') }}">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select-all"></th>
+              <th>ID</th>
+              <th>Nome</th>
+              <th>Cognome</th>
+              <th>Telefono</th>
+              <th>Email</th>
+              <th>Username</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td><input type="checkbox" name="selected_users" value="{{ user[0] }}"></td>
+              <td>{{ user[0] }}</td>
+              <td>{{ user[1] }}</td>
+              <td>{{ user[2] }}</td>
+              <td>{{ user[3] }}</td>
+              <td>{{ user[4] or 'ND' }}</td>
+              <td>{{ user[5] }}</td>
+              <td>
+                <div class="actions">
+                  <a href="{{ url_for('admin_edit_user', user_id=user[0]) }}">
+                    <button class="big-btn" type="button">Modifica</button>
+                  </a>
+                  <form method="post" action="{{ url_for('admin_delete_user', user_id=user[0]) }}" onsubmit="return confirm('Confermi eliminazione utente {{ user[1] }} {{ user[2] }}?')">
+                    <button type="submit" class="delete-btn">Elimina</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="bulk-delete" id="bulk-delete-container">
+          <button type="submit" class="delete-btn" onclick="return confirm('Eliminare tutti gli utenti selezionati?')">Elimina Selezionati</button>
+        </div>
+      </form>
+      {% else %}
+        <p>Nessun utente registrato.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('input[name="selected_users"]');
+    const bulkDelete = document.getElementById('bulk-delete-container');
+
+    function toggleBulkDeleteButton() {
+      const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+      bulkDelete.style.display = anyChecked ? 'flex' : 'none';
+    }
+
+    selectAll?.addEventListener('change', function () {
+      checkboxes.forEach(cb => cb.checked = selectAll.checked);
+      toggleBulkDeleteButton();
+    });
+
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', toggleBulkDeleteButton);
+    });
+  </script>
+</body>
+</html>
+

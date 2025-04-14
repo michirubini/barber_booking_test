@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Invio Comunicazioni Marketing</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      margin-top: 10px;
+    }
+    input[type="text"], input[type="date"] {
+      padding: 6px;
+      width: 100%;
+      max-width: 300px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    #filters {
+      margin: 20px 0;
+      padding: 10px;
+      background-color: #f2f2f2;
+      border-radius: 10px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .user-box {
+      padding: 6px 0;
+      border-bottom: 1px solid #ddd;
+      font-size: 14px;
+    }
+
+    #user-list-wrapper {
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background-color: #fff;
+      margin-top: 15px;
+    }
+
+    .group-actions {
+      margin-top: 10px;
+    }
+
+    .group-actions button {
+      padding: 5px 10px;
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    .big-btn {
+      margin-top: 20px;
+      padding: 10px 22px;
+      font-size: 15px;
+      border-radius: 6px;
+      background-color: #444;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .big-btn:hover {
+      background-color: #222;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📢 Invia Email Promozionale</h2>
+
+    <form method="post">
+      <!-- ✍️ OGGETTO -->
+      <label for="subject">Oggetto Email:</label>
+      <input type="text" name="subject" id="subject" required>
+
+      <!-- 📝 MESSAGGIO -->
+      <label for="message">Messaggio:</label>
+      <textarea name="message" required placeholder="Scrivi qui il messaggio da inviare..."></textarea>
+
+      <!-- 🔍 FILTRI -->
+      <div id="filters">
+        <div>
+          <label>Filtro nome/email:</label>
+          <input type="text" id="search" placeholder="Mario o mario@email.it">
+        </div>
+        <div class="group-actions" style="align-self: end;">
+          <button type="button" onclick="selectAll()">Seleziona tutti</button>
+          <button type="button" onclick="deselectAll()">Deseleziona tutti</button>
+        </div>
+      </div>
+
+      <!-- 👥 UTENTI SCROLLABILI -->
+      <div id="user-list-wrapper">
+        <div id="user-list">
+          {% if users %}
+            {% for user in users %}
+              <div class="user-box">
+                <label>
+                  <input type="checkbox" name="selected_users" value="{{ user[1] }}">
+                  {{ user[0] }} (<i>{{ user[1] }}</i>)
+                </label>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p>Nessun utente ha acconsentito a ricevere comunicazioni.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- 📤 PULSANTE INVIO -->
+      <button type="submit" class="big-btn">📤 Invia Email</button>
+    </form>
+
+    <!-- 🔙 TORNA INDIETRO -->
+    <a href="{{ url_for('admin_dashboard') }}" style="display: block; margin-top: 25px;">← Torna alla Dashboard</a>
+  </div>
+
+  <script>
+    const searchInput = document.getElementById('search');
+    const userList = document.getElementById('user-list');
+
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.toLowerCase();
+      const users = userList.querySelectorAll('.user-box');
+      users.forEach(user => {
+        const text = user.textContent.toLowerCase();
+        user.style.display = text.includes(query) ? '' : 'none';
+      });
+    });
+
+    function selectAll() {
+      document.querySelectorAll('input[name="selected_users"]').forEach(cb => cb.checked = true);
+    }
+
+    function deselectAll() {
+      document.querySelectorAll('input[name="selected_users"]').forEach(cb => cb.checked = false);
+    }
+  </script>
+</body>
+</html>
+
+
