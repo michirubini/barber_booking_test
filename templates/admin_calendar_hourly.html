@@ -223,5 +223,30 @@ if (slotPrenotazioni.length > 0) {
 
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
   </script>
+  <script>
+    document.addEventListener('click', function (e) {
+      if (e.target.classList.contains('admin-delete-appointment')) {
+        const appointmentId = e.target.dataset.id;
+        if (confirm('Sei sicuro di voler eliminare questo appuntamento?')) {
+          fetch(`/admin_delete_appointment/${appointmentId}`, {
+            method: 'POST'
+          })
+          .then(res => {
+            if (res.ok) {
+              alert('Appuntamento eliminato con successo.');
+              location.reload();
+            } else {
+              alert('Errore durante l\'eliminazione.');
+            }
+          })
+          .catch(err => {
+            console.error('Errore di rete:', err);
+            alert('Errore di rete durante la richiesta.');
+          });
+        }
+      }
+    });
+  </script>
+  
 </body>
 </html>
