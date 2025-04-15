@@ -140,32 +140,35 @@ def admin_edit_user(user_id):
         username = request.form['username']
         password = request.form['password']
 
+        # ✅ Newsletter aggiornabile
+        newsletter = 1 if request.form.get('newsletter') == 'on' else 0
+
         # Controlli duplicati
         cursor.execute("SELECT id FROM users WHERE username = ? AND id != ?", (username, user_id))
         if cursor.fetchone():
             conn.close()
-            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password),
+            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
                                    error="Username già in uso")
 
         cursor.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id))
         if cursor.fetchone():
             conn.close()
-            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password),
+            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
                                    error="Email già registrata")
 
         # Salva modifiche
         cursor.execute("""
             UPDATE users 
-            SET name = ?, surname = ?, phone = ?, email = ?, username = ?, password = ?
+            SET name = ?, surname = ?, phone = ?, email = ?, username = ?, password = ?, newsletter_optin = ?
             WHERE id = ?
-        """, (name, surname, phone, email, username, password, user_id))
+        """, (name, surname, phone, email, username, password, newsletter, user_id))
 
         conn.commit()
         conn.close()
         return redirect(url_for('admin_users'))
 
-    # Carica dati utente
-    cursor.execute("SELECT name, surname, phone, email, username, password FROM users WHERE id = ?", (user_id,))
+    # Carica dati utente (incluso newsletter_optin)
+    cursor.execute("SELECT name, surname, phone, email, username, password, newsletter_optin FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     conn.close()
 
@@ -173,6 +176,7 @@ def admin_edit_user(user_id):
         return redirect(url_for('admin_users'))
 
     return render_template('admin_edit_user.html', user=user)
+
 
 @app.route('/delete_account', methods=['POST'])
 def delete_account():
@@ -462,6 +466,15 @@ def admin_add_user():
         username = request.form['username']
         password = request.form['password']
 
+        # ✅ Nuovo: gestione privacy obbligatoria
+        privacy = request.form.get('privacy')
+        if not privacy:
+            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, 0),
+                                   error="Devi accettare la privacy")
+
+        # ✅ Nuovo: newsletter facoltativa
+        newsletter = 1 if request.form.get('newsletter') == 'on' else 0
+
         conn = sqlite3.connect('bookings.db')
         cursor = conn.cursor()
 
@@ -469,28 +482,29 @@ def admin_add_user():
         cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
         if cursor.fetchone():
             conn.close()
-            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password),
+            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
                                    error="Username già esistente")
 
         cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         if cursor.fetchone():
             conn.close()
-            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password),
+            return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
                                    error="Email già registrata")
 
         # Inserimento
         cursor.execute("""
-            INSERT INTO users (username, password, name, surname, phone, email)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (username, password, name, surname, phone, email))
+            INSERT INTO users (username, password, name, surname, phone, email, newsletter_optin)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (username, password, name, surname, phone, email, newsletter))
 
         conn.commit()
         conn.close()
         return redirect(url_for('admin_users'))
 
     # GET – form vuoto
-    user = ("", "", "", "", "", "")
+    user = ("", "", "", "", "", "", 0)
     return render_template('admin_edit_user.html', user=user)
+
 
 
 @app.route('/admin_dashboard')

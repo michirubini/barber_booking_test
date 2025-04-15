@@ -3,43 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Modifica Utente</title>
+  <title>Gestione Utente</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <div class="page">
-    <div class="container">
-      <h2>Modifica Utente</h2>
+  <div class="container">
+    <h2>{{ user[0] and 'Modifica Utente' or 'Aggiungi Utente' }}</h2>
 
-      {% if error %}
-        <p style="color:red">{{ error }}</p>
-      {% endif %}
+    {% if error %}
+      <p style="color: red;">{{ error }}</p>
+    {% endif %}
 
-      <form method="post">
-        <label for="name">Nome:</label>
-        <input type="text" name="name" value="{{ user[0] }}" required>
+    <form method="post">
+      <label for="name">Nome:</label>
+      <input type="text" name="name" value="{{ user[0] }}" required>
 
-        <label for="surname">Cognome:</label>
-        <input type="text" name="surname" value="{{ user[1] }}" required>
+      <label for="surname">Cognome:</label>
+      <input type="text" name="surname" value="{{ user[1] }}" required>
 
-        <label for="phone">Telefono:</label>
-        <input type="text" name="phone" value="{{ user[2] }}" required>
+      <label for="phone">Telefono:</label>
+      <input type="text" name="phone" value="{{ user[2] }}" required>
 
-        <label for="email">Email:</label>
-        <input type="email" name="email" value="{{ user[3] }}" required>
+      <label for="email">Email:</label>
+      <input type="email" name="email" value="{{ user[3] }}" required>
 
-        <label for="username">Username:</label>
-        <input type="text" name="username" value="{{ user[4] }}" required>
+      <label for="username">Username:</label>
+      <input type="text" name="username" value="{{ user[4] }}" required>
 
-        <label for="password">Password:</label>
-        <input type="password" name="password" value="{{ user[5] }}" required>
+      <label for="password">Password:</label>
+      <input type="text" name="password" value="{{ user[5] }}" required>
 
-        <button type="submit" class="big-btn">Salva Modifiche</button>
-      </form>
+      <!-- ✅ Check obbligatoria privacy -->
+      <div style="margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; background-color: #fdfdfd;">
+        <h4 style="margin-top: 0;">Informativa sul trattamento dei dati personali</h4>
+        <div style="max-height: 120px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
+          I dati saranno trattati da Les Klips Hair & Barber solo per finalità di gestione appuntamenti.
+          Non saranno ceduti a terzi e potrai chiederne la cancellazione in qualsiasi momento.
+        </div>
+        <label style="display: block; margin-top: 10px;">
+          <input type="checkbox" name="privacy" required>
+          Dichiaro di aver letto e accettato l’informativa sulla privacy *
+        </label>
+      </div>
 
-      <br>
-      <a href="{{ url_for('admin_users') }}">&larr; Torna alla lista utenti</a>
-    </div>
+      <!-- ✅ Check facoltativa newsletter -->
+      <div style="margin-top: 15px;">
+        <label>
+          <input type="checkbox" name="newsletter" {% if user|length > 6 and user[6] == 1 %}checked{% endif %}>
+          Acconsento a ricevere comunicazioni promozionali e offerte via email
+        </label>
+      </div>
+
+      <button type="submit" class="big-btn" style="margin-top: 20px;">Salva</button>
+    </form>
+
+    <a href="{{ url_for('admin_users') }}" style="display: block; margin-top: 15px;">← Torna alla lista utenti</a>
   </div>
 </body>
 </html>
