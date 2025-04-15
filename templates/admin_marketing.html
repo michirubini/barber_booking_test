@@ -10,6 +10,15 @@
     #filters { margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; }
     #filters input[type="text"] { padding: 5px; width: 250px; }
     #filters button, .group-actions button { padding: 6px 12px; cursor: pointer; }
+
+    #user-list-wrapper {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background-color: #f9f9f9;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
@@ -32,21 +41,23 @@
         </div>
       </div>
 
-      <!-- ✅ LISTA DESTINATARI -->
-      <div id="user-list">
-        {% for user in users %}
-          <div class="user-box">
-            <label>
-              <input type="checkbox" name="selected_users" value="{{ user[1] }}">
-              <span class="user-name">{{ user[0] }}</span> (<span class="user-email">{{ user[1] }}</span>)
-            </label>
-          </div>
-        {% else %}
-          <p>Nessun utente ha acconsentito a ricevere comunicazioni.</p>
-        {% endfor %}
+      <!-- 🧱 BLOCCO SCROLL DESTINATARI -->
+      <div id="user-list-wrapper">
+        <div id="user-list">
+          {% for user in users %}
+            <div class="user-box">
+              <label>
+                <input type="checkbox" name="selected_users" value="{{ user[1] }}">
+                <span class="user-name">{{ user[0] }}</span> (<span class="user-email">{{ user[1] }}</span>)
+              </label>
+            </div>
+          {% else %}
+            <p>Nessun utente ha acconsentito a ricevere comunicazioni.</p>
+          {% endfor %}
+        </div>
       </div>
 
-      <button type="submit" class="big-btn" style="margin-top: 20px;">📤 Invia Email</button>
+      <button type="submit" class="big-btn" style="margin-top: 10px;">📤 Invia Email</button>
     </form>
 
     <a href="{{ url_for('admin_dashboard') }}" style="display: block; margin-top: 15px;">← Torna alla Dashboard</a>
