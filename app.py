@@ -961,30 +961,37 @@ def account():
         username = request.form['username']
         password = request.form['password']
 
-        # Verifica che lo username non sia già usato da un altro utente
+        # ✅ Newsletter opzionale
+        newsletter = 1 if request.form.get('newsletter') == 'on' else 0
+
+        # ❌ Username duplicato?
         cursor.execute("SELECT id FROM users WHERE username = ? AND id != ?", (username, user_id))
         if cursor.fetchone():
             conn.close()
             return render_template('account.html', error="Username già in uso.", user=None)
 
-        # Aggiorna i dati dell'utente
+        # ✅ Aggiorna i dati
         cursor.execute("""
             UPDATE users 
-            SET name = ?, surname = ?, phone = ?, email = ?, username = ?, password = ?
+            SET name = ?, surname = ?, phone = ?, email = ?, username = ?, password = ?, newsletter_optin = ?
             WHERE id = ?
-        """, (name, surname, phone, email, username, password, user_id))
+        """, (name, surname, phone, email, username, password, newsletter, user_id))
         
         conn.commit()
         conn.close()
-        session['username'] = username  # Aggiorna anche in sessione
+
+        # 🔁 Aggiorna anche la sessione
+        session['username'] = username
+
         return redirect(url_for('user_dashboard'))
 
-    # Carica i dati attuali dell'utente (INCLUSA email)
-    cursor.execute("SELECT name, surname, phone, email, username, password FROM users WHERE id = ?", (user_id,))
+    # GET – Carica i dati utente (incluso newsletter_optin)
+    cursor.execute("SELECT name, surname, phone, email, username, password, newsletter_optin FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     conn.close()
 
     return render_template('account.html', user=user)
+
 
 
 @app.route('/admin_history', methods=['GET', 'POST'])
