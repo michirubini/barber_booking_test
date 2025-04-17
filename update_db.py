@@ -29,6 +29,12 @@ try:
 except sqlite3.OperationalError:
     print("[INFO] La colonna 'email' esiste già")
 
+try:
+    cursor.execute("ALTER TABLE users ADD COLUMN newsletter_optin INTEGER DEFAULT 0")
+    print("[OK] Colonna 'newsletter_optin' aggiunta")
+except sqlite3.OperationalError:
+    print("[INFO] La colonna 'newsletter_optin' esiste già")
+
 # Aggiunta colonna 'barber' nella tabella appointments
 try:
     cursor.execute("ALTER TABLE appointments ADD COLUMN barber TEXT DEFAULT 'Mattia'")
@@ -43,12 +49,21 @@ try:
 except sqlite3.OperationalError:
     print("[INFO] La colonna 'tipo' esiste già nella tabella appointments")
 
+# ✅ Aggiunta tabella per token reset password
 try:
-    cursor.execute("ALTER TABLE users ADD COLUMN newsletter_optin INTEGER DEFAULT 0")
-    print("[OK] Colonna 'newsletter_optin' aggiunta")
-except sqlite3.OperationalError:
-    print("[INFO] La colonna 'newsletter_optin' esiste già")
-
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS password_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        token TEXT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used INTEGER DEFAULT 0,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+    ''')
+    print("[OK] Tabella 'password_tokens' creata o già esistente")
+except Exception as e:
+    print(f"[ERRORE] Creazione tabella token: {e}")
 
 # Salvataggio e chiusura
 conn.commit()

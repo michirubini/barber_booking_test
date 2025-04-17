@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import sqlite3
 from datetime import datetime, timedelta
 import bcrypt
+import uuid
+
 
 
 app = Flask(__name__)
@@ -41,6 +43,83 @@ init_db()
 def index():
     return render_template('index.html')
 
+import uuid
+from datetime import datetime, timedelta
+
+
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    message = None
+    error = None
+
+    if request.method == 'POST':
+        email = request.form['email']
+        conn = sqlite3.connect('bookings.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+
+        if user:
+            user_id = user[0]
+            token = str(uuid.uuid4())
+            expires_at = datetime.now() + timedelta(minutes=30)
+
+            cursor.execute("""
+                INSERT INTO password_tokens (user_id, token, expires_at)
+                VALUES (?, ?, ?)
+            """, (user_id, token, expires_at))
+            conn.commit()
+
+            # 🔗 Link da inviare via email
+            reset_link = url_for('reset_password', token=token, _external=True)
+
+            invia_email_reset(email, reset_link)
+
+            message = "Ti abbiamo inviato un'email con il link per reimpostare la password."
+        else:
+            error = "Email non trovata nel sistema."
+
+        conn.close()
+
+    return render_template('forgot_password.html', message=message, error=error)
+
+def invia_email_reset(email, reset_link):
+    import smtplib
+    from email.mime.text import MIMEText
+
+    mittente = 'rubinimc@gmail.com'  # ← usa la tua email reale
+    password = 'mtgk jhxz wagn wicg'  # ← usa la tua app password (Gmail 2FA)
+
+    msg = MIMEText(f"""\
+Ciao!
+
+Abbiamo ricevuto una richiesta per reimpostare la tua password.
+
+🔗 Clicca qui sotto per scegliere una nuova password:
+{reset_link}
+
+Il link è valido per 30 minuti.
+
+Se non sei stato tu a fare la richiesta, ignora questa email.
+""")
+
+    msg['Subject'] = "🔐 Reimposta la tua password"
+    msg['From'] = mittente
+    msg['To'] = email
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(mittente, password)
+        server.send_message(msg)
+        server.quit()
+        print(f"✅ Email inviata a {email}")
+    except Exception as e:
+        print(f"❌ Errore invio email a {email}: {e}")
+
+
 @app.route('/admin_delete_appointment/<int:appointment_id>', methods=['POST'])
 def admin_delete_appointment(appointment_id):
     if 'admin' not in session:
@@ -76,6 +155,70 @@ def login_admin():
 
     return render_template('login_admin.html', error=error)
 
+@app.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    token = request.args.get('token')
+    error = None
+    success = None
+    show_form = True
+
+    if not token:
+        return "Token mancante", 400
+
+    conn = sqlite3.connect('bookings.db')
+    cursor = conn.cursor()
+
+    # Verifica token esistente
+    cursor.execute("""
+        SELECT pt.user_id, pt.expires_at, pt.used
+        FROM password_tokens pt
+        WHERE pt.token = ?
+    """, (token,))
+    token_data = cursor.fetchone()
+
+    if not token_data:
+        conn.close()
+        return render_template("reset_password.html", error="Token non valido.", show_form=False)
+
+    user_id, expires_at_str, used = token_data
+
+    # ✅ Fix conversione con millisecondi
+    try:
+        expires_at = datetime.fromisoformat(expires_at_str)
+    except ValueError:
+        conn.close()
+        return render_template("reset_password.html", error="Errore nella validità del token.", show_form=False)
+
+    if used:
+        conn.close()
+        return render_template("reset_password.html", error="Questo link è già stato utilizzato.", show_form=False)
+
+    if datetime.now() > expires_at:
+        conn.close()
+        return render_template("reset_password.html", error="Il link per reimpostare la password è scaduto.", show_form=False)
+
+    # POST → aggiorna la password
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        if new_password != confirm_password:
+            return render_template("reset_password.html", error="Le password non coincidono.", show_form=True)
+
+        # Cripta la nuova password
+        hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # Aggiorna nel DB e segna il token come usato
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, user_id))
+        cursor.execute("UPDATE password_tokens SET used = 1 WHERE token = ?", (token,))
+        conn.commit()
+        conn.close()
+
+        success = "✅ La tua password è stata reimpostata con successo!"
+        return render_template("reset_password.html", success=success, show_form=False)
+
+    conn.close()
+    return render_template("reset_password.html", show_form=True)
 
 
 @app.route('/login_user', methods=['GET', 'POST'])
