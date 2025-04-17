@@ -345,8 +345,12 @@ def admin_marketing():
 
     conn = sqlite3.connect('bookings.db')
     cursor = conn.cursor()
+    users = []
+    selected_range = ''
 
     if request.method == 'POST':
+        # Invio email
+        selected_range = request.form.get('inactivity_range', '')
         subject = request.form.get('subject')
         message = request.form.get('message')
         selected_emails = request.form.getlist('selected_users')
@@ -360,42 +364,47 @@ def admin_marketing():
                 print(f"Errore invio a {email}: {e}")
 
         conn.close()
-
         return f"""
-        <html>
-        <head>
-            <meta http-equiv="refresh" content="5;url={url_for('admin_dashboard')}">
-            <style>
-                body {{
-                    font-family: sans-serif;
-                    text-align: center;
-                    padding: 50px;
-                }}
-                button {{
-                    margin-top: 20px;
-                    padding: 10px 20px;
-                    font-size: 16px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                }}
-            </style>
-        </head>
-        <body>
-            <h2>✅ Email inviate con successo a {success} utenti.</h2>
-            <p>Verrai reindirizzato alla dashboard tra 5 secondi...</p>
-            <a href="{url_for('admin_dashboard')}">
-                <button>← Torna subito alla Dashboard</button>
-            </a>
-        </body>
-        </html>
+        <html><head>
+        <meta http-equiv="refresh" content="5;url={url_for('admin_dashboard')}">
+        </head><body>
+        <h2>✅ Email inviate con successo a {success} utenti.</h2>
+        <p>Verrai reindirizzato alla dashboard tra 5 secondi...</p>
+        <a href="{url_for('admin_dashboard')}"><button>← Torna subito alla Dashboard</button></a>
+        </body></html>
         """
 
-    # GET: mostra utenti che hanno accettato newsletter
-    cursor.execute("SELECT name || ' ' || surname, email FROM users WHERE newsletter_optin = 1")
-    users = cursor.fetchall()
-    conn.close()
+    elif request.method == 'GET':
+        # Filtro utenti (da form di ricerca)
+        selected_range = request.args.get('inactivity_range', '')
 
-    return render_template('admin_marketing.html', users=users)
+    # Calcolo intervallo se selezionato
+    min_days, max_days = 0, 9999
+    if selected_range:
+        if '+' in selected_range:
+            min_days = int(selected_range.replace('+', ''))
+        else:
+            min_days, max_days = map(int, selected_range.split('-'))
+
+        # Query filtrata
+        cursor.execute("""
+            SELECT u.name || ' ' || u.surname, u.email,
+                   ROUND(julianday('now') - julianday(a.last_date)) as giorni_passati
+            FROM users u
+            JOIN (
+                SELECT user_id, MAX(date) as last_date
+                FROM appointments
+                GROUP BY user_id
+            ) a ON u.id = a.user_id
+            WHERE u.newsletter_optin = 1
+            AND julianday('now') - julianday(a.last_date) >= ?
+            AND julianday('now') - julianday(a.last_date) < ?
+        """, (min_days, max_days))
+        users = cursor.fetchall()
+
+    conn.close()
+    return render_template('admin_marketing.html', users=users, selected_range=selected_range)
+
 
 
 

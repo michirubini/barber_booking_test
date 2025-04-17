@@ -1,94 +1,117 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <title>Invio Comunicazioni Marketing</title>
+  <meta charset="UTF-8">
+  <title>Marketing – Invia Email</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
-    textarea { width: 100%; min-height: 150px; margin-top: 10px; }
-    .user-box { border-bottom: 1px solid #ddd; padding: 8px 0; }
-    #filters { margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; }
-    #filters input[type="text"] { padding: 5px; width: 250px; }
-    #filters button, .group-actions button { padding: 6px 12px; cursor: pointer; }
-
-    #user-list-wrapper {
-      max-height: 400px;
-      overflow-y: auto;
+    .email-preview {
+      margin-top: 20px;
+      padding: 15px;
       border: 1px solid #ccc;
-      padding: 10px;
+      border-radius: 5px;
       background-color: #f9f9f9;
-      margin-bottom: 20px;
+    }
+    .email-preview ul {
+      list-style: disc;
+      padding-left: 20px;
+      max-height: 150px;
+      overflow-y: auto;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>📢 Invia Email Promozionale</h2>
+    <h2>📢 Invia Email Marketing</h2>
 
-    <form method="post">
-      <label for="subject">Oggetto Email:</label>
-      <input type="text" name="subject" id="subject" required>
-
-      <label for="message">Messaggio:</label>
-      <textarea name="message" required placeholder="Scrivi qui il messaggio da inviare..."></textarea>
-
-      <!-- 🔍 FILTRI -->
-      <div id="filters">
-        <input type="text" id="search" placeholder="Cerca per nome o email...">
-        <div class="group-actions">
-          <button type="button" onclick="selectAll()">Seleziona tutti</button>
-          <button type="button" onclick="deselectAll()">Deseleziona tutti</button>
-        </div>
-      </div>
-
-      <!-- 🧱 BLOCCO SCROLL DESTINATARI -->
-      <div id="user-list-wrapper">
-        <div id="user-list">
-          {% for user in users %}
-            <div class="user-box">
-              <label>
-                <input type="checkbox" name="selected_users" value="{{ user[1] }}">
-                <span class="user-name">{{ user[0] }}</span> (<span class="user-email">{{ user[1] }}</span>)
-              </label>
-            </div>
-          {% else %}
-            <p>Nessun utente ha acconsentito a ricevere comunicazioni.</p>
-          {% endfor %}
-        </div>
-      </div>
-
-      <button type="submit" class="big-btn" style="margin-top: 10px;">📤 Invia Email</button>
+    <!-- 🔍 Filtro utenti -->
+    <form method="get">
+      <label for="inactivity_range">Filtra per utenti inattivi da:</label>
+      <select name="inactivity_range" required>
+        <option value="">-- Seleziona intervallo --</option>
+        <option value="10-15" {% if selected_range == '10-15' %}selected{% endif %}>Da 10 a 15 giorni</option>
+        <option value="15-20" {% if selected_range == '15-20' %}selected{% endif %}>Da 15 a 20 giorni</option>
+        <option value="20-30" {% if selected_range == '20-30' %}selected{% endif %}>Da 20 a 30 giorni</option>
+        <option value="30-40" {% if selected_range == '30-40' %}selected{% endif %}>Da 30 a 40 giorni</option>
+        <option value="40+" {% if selected_range == '40+' %}selected{% endif %}>Oltre 40 giorni</option>
+      </select>
+      <button type="submit" class="big-btn">🔍 Cerca</button>
     </form>
 
-    <a href="{{ url_for('admin_dashboard') }}" style="display: block; margin-top: 15px;">← Torna alla Dashboard</a>
+    <!-- 📨 Invio email -->
+    {% if users %}
+    <form method="post" oninput="updatePreview()">
+      <input type="hidden" name="inactivity_range" value="{{ selected_range }}">
+      
+      <label for="subject">Oggetto:</label>
+      <input type="text" name="subject" required>
+
+      <label for="message">Messaggio:</label>
+      <textarea name="message" rows="6" placeholder="Scrivi il contenuto dell'email qui..." required></textarea>
+
+      <h3>Utenti trovati: {{ users|length }}</h3>
+
+      <!-- ✅ Bottone Seleziona/Deseleziona tutti -->
+      <button type="button" onclick="toggleAllCheckboxes()" style="margin-bottom: 10px;" id="toggleBtn">Seleziona tutti</button>
+
+      <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px;">
+        {% for user in users %}
+          <div style="margin-bottom: 8px;">
+            <label>
+              <input type="checkbox" name="selected_users" value="{{ user[1] }}" onchange="updatePreview()">
+              {{ loop.index }}. {{ user[0] }} – {{ user[1] }} ({{ user[2] }} giorni fa)
+            </label>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="email-preview" id="emailPreview" style="display:none;">
+        <strong>📨 Email selezionate (<span id="count">0</span>):</strong>
+        <ul id="previewList"></ul>
+      </div>
+
+      <br>
+      <button type="submit" class="big-btn">📨 Invia Email</button>
+    </form>
+    {% endif %}
+
+    <br>
+    <a href="{{ url_for('admin_dashboard') }}">← Torna alla Dashboard</a>
   </div>
 
-  <!-- ✅ JS per filtro live e selezione -->
   <script>
-    const searchInput = document.getElementById('search');
-    const userList = document.getElementById('user-list');
+    function updatePreview() {
+      const checkboxes = document.querySelectorAll('input[name="selected_users"]:checked');
+      const previewBox = document.getElementById('emailPreview');
+      const previewList = document.getElementById('previewList');
+      const countSpan = document.getElementById('count');
 
-    searchInput.addEventListener('input', () => {
-      const query = searchInput.value.toLowerCase();
-      const users = userList.querySelectorAll('.user-box');
-      users.forEach(user => {
-        const name = user.querySelector('.user-name').textContent.toLowerCase();
-        const email = user.querySelector('.user-email').textContent.toLowerCase();
-        if (name.includes(query) || email.includes(query)) {
-          user.style.display = '';
-        } else {
-          user.style.display = 'none';
-        }
-      });
-    });
+      previewList.innerHTML = '';
+      countSpan.textContent = checkboxes.length;
 
-    function selectAll() {
-      document.querySelectorAll('input[type="checkbox"][name="selected_users"]:not(:disabled)').forEach(cb => cb.checked = true);
+      if (checkboxes.length > 0) {
+        previewBox.style.display = 'block';
+        checkboxes.forEach(cb => {
+          const li = document.createElement('li');
+          li.textContent = cb.value;
+          previewList.appendChild(li);
+        });
+      } else {
+        previewBox.style.display = 'none';
+      }
     }
 
-    function deselectAll() {
-      document.querySelectorAll('input[type="checkbox"][name="selected_users"]').forEach(cb => cb.checked = false);
+    function toggleAllCheckboxes() {
+      const checkboxes = document.querySelectorAll('input[name="selected_users"]');
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+      checkboxes.forEach(cb => cb.checked = !allChecked);
+      updatePreview();
+
+      const btn = document.getElementById('toggleBtn');
+      btn.textContent = allChecked ? "Seleziona tutti" : "Deseleziona tutti";
     }
   </script>
 </body>
 </html>
+
