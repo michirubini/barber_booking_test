@@ -99,30 +99,49 @@ def admin_users():
     page = int(request.args.get('page', 1))
     per_page = 50
     offset = (page - 1) * per_page
+    search_query = request.args.get('search', '').strip()
 
     conn = sqlite3.connect('bookings.db')
     cursor = conn.cursor()
 
-    # Conta utenti totali
-    cursor.execute("SELECT COUNT(*) FROM users")
-    total_users = cursor.fetchone()[0]
-    total_pages = (total_users + per_page - 1) // per_page  # arrotonda in su
+    if search_query:
+        search = f"%{search_query}%"
+        cursor.execute("""
+            SELECT COUNT(*) FROM users
+            WHERE name LIKE ? OR surname LIKE ? OR phone LIKE ? OR email LIKE ?
+        """, (search, search, search, search))
+        total_users = cursor.fetchone()[0]
 
-    # Prendi utenti paginati
-    cursor.execute("""
-        SELECT id, name, surname, email, phone, username, newsletter_optin
-        FROM users
-        ORDER BY id
-        LIMIT ? OFFSET ?
-    """, (per_page, offset))
+        cursor.execute("""
+            SELECT id, name, surname, phone, email, username
+            FROM users
+            WHERE name LIKE ? OR surname LIKE ? OR phone LIKE ? OR email LIKE ?
+            ORDER BY id
+            LIMIT ? OFFSET ?
+        """, (search, search, search, search, per_page, offset))
+    else:
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT id, name, surname, phone, email, username
+            FROM users
+            ORDER BY id
+            LIMIT ? OFFSET ?
+        """, (per_page, offset))
+
     users = cursor.fetchall()
-
     conn.close()
+
+    total_pages = (total_users + per_page - 1) // per_page
 
     return render_template('admin_users.html',
                            users=users,
                            page=page,
-                           total_pages=total_pages)
+                           total_pages=total_pages,
+                           search_query=search_query)
+
+
 
 
 @app.route('/admin_delete_selected_users', methods=['POST'])
