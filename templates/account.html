@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Il Mio Profilo</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .delete-btn {
+      background-color: #7b2f3c;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 1rem;
+      border-radius: 8px;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .delete-btn:hover {
+      background-color: #652431;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -42,6 +58,13 @@
       </div>
 
       <button type="submit" class="big-btn" style="margin-top: 20px;">Salva</button>
+    </form>
+
+    <!-- 🔴 Bottone per eliminare l’account -->
+    <form action="{{ url_for('delete_account') }}" method="post" onsubmit="return confirm('Sei sicuro di voler eliminare il tuo account? Questa operazione è irreversibile.')">
+      <button type="submit" class="delete-btn" style="margin-top: 30px;">
+        🗑️ Elimina il mio account
+      </button>
     </form>
 
     <a href="{{ url_for('user_dashboard') }}" style="display: block; margin-top: 15px;">← Torna alla Dashboard</a>

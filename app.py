@@ -244,7 +244,8 @@ def delete_account():
     conn.close()
 
     session.clear()
-    return redirect(url_for('index'))
+    return render_template('goodbye.html')
+
 
 
 
