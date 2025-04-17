@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify # type: ignore
 import sqlite3
 from datetime import datetime, timedelta
+import bcrypt
+
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
@@ -54,41 +56,50 @@ def admin_delete_appointment(appointment_id):
 
 @app.route('/login_admin', methods=['GET', 'POST'])
 def login_admin():
-    if request.method == 'POST':
-        # ✅ Se sei loggato come utente, esci dalla sessione utente
-        session.pop('user_id', None)
-        session.pop('username', None)
+    error = None
 
+    if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        if username == 'admin' and password == 'admin':
-            session['admin'] = True
+
+        conn = sqlite3.connect('bookings.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM admins WHERE username = ?", (username,))
+        admin = cursor.fetchone()
+        conn.close()
+
+        if admin and bcrypt.checkpw(password.encode('utf-8'), admin[2].encode('utf-8')):  # admin[2] = password hash
+            session['admin'] = admin[0]
             return redirect(url_for('admin_dashboard'))
         else:
-            return render_template('login_admin.html', error="Credenziali admin non valide")
-    return render_template('login_admin.html')
+            error = "Credenziali non valide"
+
+    return render_template('login_admin.html', error=error)
+
 
 
 @app.route('/login_user', methods=['GET', 'POST'])
 def login_user():
+    error = None
     if request.method == 'POST':
-        # ✅ Se sei loggato come admin, esci dalla sessione admin
-        session.pop('admin', None)
-
         username = request.form['username']
         password = request.form['password']
+
         conn = sqlite3.connect('bookings.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = ? AND password = ?", (username, password))
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
         user = cursor.fetchone()
         conn.close()
-        if user:
+
+        if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):  # user[2] = password DB
             session['user_id'] = user[0]
-            session['username'] = username
+            session['name'] = user[3]
             return redirect(url_for('user_dashboard'))
         else:
-            return render_template('login_user.html', error="Credenziali non valide")
-    return render_template('login_user.html')
+            error = "Username o password errati"
+
+    return render_template('login_user.html', error=error)
+
 
 
 @app.route('/admin_users')
@@ -334,7 +345,7 @@ def register():
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form['confirm_password']
-        
+
         # ✅ Privacy obbligatoria
         privacy = request.form.get('privacy')
         if not privacy:
@@ -346,6 +357,9 @@ def register():
         # ❌ Controllo se le password coincidono
         if password != confirm_password:
             return render_template('register.html', error="Le password non coincidono.")
+
+        # ✅ Hash password con bcrypt
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         conn = sqlite3.connect('bookings.db')
         cursor = conn.cursor()
@@ -362,11 +376,11 @@ def register():
             conn.close()
             return render_template('register.html', error="Email già registrata")
 
-        # ✅ Inserimento nuovo utente con flag newsletter
+        # ✅ Inserimento nuovo utente con password hashata
         cursor.execute("""
             INSERT INTO users (username, password, name, surname, phone, email, newsletter_optin)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (username, password, name, surname, phone, email, newsletter))
+        """, (username, hashed_password, name, surname, phone, email, newsletter))
 
         conn.commit()
         conn.close()
@@ -377,6 +391,8 @@ def register():
         return redirect(url_for('login_user'))
 
     return render_template('register.html')
+
+
 
 @app.route('/admin_marketing', methods=['GET', 'POST'])
 def admin_marketing():
