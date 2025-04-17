@@ -26,23 +26,20 @@
 
     <!-- 🔍 Filtro utenti -->
     <form method="get">
-      <label for="inactivity_range">Filtra per utenti inattivi da:</label>
-      <select name="inactivity_range" required>
-        <option value="">-- Seleziona intervallo --</option>
-        <option value="10-15" {% if selected_range == '10-15' %}selected{% endif %}>Da 10 a 15 giorni</option>
-        <option value="15-20" {% if selected_range == '15-20' %}selected{% endif %}>Da 15 a 20 giorni</option>
-        <option value="20-30" {% if selected_range == '20-30' %}selected{% endif %}>Da 20 a 30 giorni</option>
-        <option value="30-40" {% if selected_range == '30-40' %}selected{% endif %}>Da 30 a 40 giorni</option>
-        <option value="40+" {% if selected_range == '40+' %}selected{% endif %}>Oltre 40 giorni</option>
-      </select>
+      <label for="min_days">Inattivo da almeno:</label>
+      <input type="number" name="min_days" min="1" value="{{ min_days or '' }}" required> giorni
+
+      <label for="max_days">fino a:</label>
+      <input type="number" name="max_days" min="1" value="{{ max_days or '' }}"> giorni
+
       <button type="submit" class="big-btn">🔍 Cerca</button>
     </form>
 
-    <!-- 📨 Invio email -->
     {% if users %}
     <form method="post" oninput="updatePreview()">
-      <input type="hidden" name="inactivity_range" value="{{ selected_range }}">
-      
+      <input type="hidden" name="min_days" value="{{ min_days }}">
+      <input type="hidden" name="max_days" value="{{ max_days }}">
+
       <label for="subject">Oggetto:</label>
       <input type="text" name="subject" required>
 
@@ -114,4 +111,5 @@
   </script>
 </body>
 </html>
+
 
