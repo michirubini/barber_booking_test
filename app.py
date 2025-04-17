@@ -96,13 +96,34 @@ def admin_users():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
+    page = int(request.args.get('page', 1))
+    per_page = 50
+    offset = (page - 1) * per_page
+
     conn = sqlite3.connect('bookings.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, surname, phone, email, username FROM users ORDER BY id DESC")
+
+    # Conta utenti totali
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+    total_pages = (total_users + per_page - 1) // per_page  # arrotonda in su
+
+    # Prendi utenti paginati
+    cursor.execute("""
+        SELECT id, name, surname, email, phone, username, newsletter_optin
+        FROM users
+        ORDER BY id
+        LIMIT ? OFFSET ?
+    """, (per_page, offset))
     users = cursor.fetchall()
+
     conn.close()
-    
-    return render_template('admin_users.html', users=users)
+
+    return render_template('admin_users.html',
+                           users=users,
+                           page=page,
+                           total_pages=total_pages)
+
 
 @app.route('/admin_delete_selected_users', methods=['POST'])
 def delete_selected_users():

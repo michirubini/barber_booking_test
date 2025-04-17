@@ -7,7 +7,6 @@
   
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
-    
     body {
       margin: 0;
       padding: 0;
@@ -101,6 +100,23 @@
       justify-content: flex-end;
       display: none;
     }
+
+    .pagination {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 1rem;
+    }
+
+    .pagination a {
+      margin: 0 10px;
+      text-decoration: none;
+      font-weight: bold;
+      color: #a6794e;
+    }
+
+    .pagination span {
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -110,9 +126,8 @@
       <a class="dashboard-link" href="{{ url_for('admin_dashboard') }}">&larr; Torna alla Dashboard</a>
 
       <a href="{{ url_for('admin_add_user') }}" style="display: inline-block; margin-bottom: 25px;">
-  <button class="big-btn" style="width: auto; padding: 10px 20px;">➕ Aggiungi Cliente</button>
-</a>
-
+        <button class="big-btn" style="width: auto; padding: 10px 20px;">➕ Aggiungi Cliente</button>
+      </a>
 
       {% if users %}
       <form method="post" action="{{ url_for('delete_selected_users') }}">
@@ -157,6 +172,18 @@
           <button type="submit" class="delete-btn" onclick="return confirm('Eliminare tutti gli utenti selezionati?')">Elimina Selezionati</button>
         </div>
       </form>
+
+      <!-- ✅ PAGINAZIONE -->
+      <div class="pagination">
+        {% if page > 1 %}
+          <a href="{{ url_for('admin_users', page=page-1) }}">← Pagina precedente</a>
+        {% endif %}
+        <span>Pagina {{ page }} di {{ total_pages }}</span>
+        {% if page < total_pages %}
+          <a href="{{ url_for('admin_users', page=page+1) }}">Pagina successiva →</a>
+        {% endif %}
+      </div>
+
       {% else %}
         <p>Nessun utente registrato.</p>
       {% endif %}
@@ -184,4 +211,3 @@
   </script>
 </body>
 </html>
-
