@@ -3,6 +3,8 @@ import sqlite3
 from datetime import datetime, timedelta
 import bcrypt
 import uuid
+import re
+
 
 
 
@@ -46,6 +48,13 @@ def index():
 import uuid
 from datetime import datetime, timedelta
 
+def is_password_strong(password):
+    return (
+        len(password) >= 8 and
+        re.search(r'[A-Za-z]', password) and
+        re.search(r'\d', password) and
+        re.search(r'[^A-Za-z0-9]', password)
+    )
 
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
@@ -498,6 +507,19 @@ def register():
         # ✅ Newsletter facoltativa
         newsletter = 1 if request.form.get('newsletter') == 'on' else 0
 
+        # 🔐 Verifica forza password
+        import re
+        def is_password_strong(pwd):
+            return (
+                len(pwd) >= 8 and
+                re.search(r'[A-Za-z]', pwd) and
+                re.search(r'\d', pwd) and
+                re.search(r'[^A-Za-z0-9]', pwd)
+            )
+
+        if not is_password_strong(password):
+            return render_template('register.html', error="La password deve contenere almeno 8 caratteri, una lettera, un numero e un simbolo.")
+
         # ❌ Controllo se le password coincidono
         if password != confirm_password:
             return render_template('register.html', error="Le password non coincidono.")
@@ -535,6 +557,7 @@ def register():
         return redirect(url_for('login_user'))
 
     return render_template('register.html')
+
 
 
 

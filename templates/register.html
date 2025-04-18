@@ -44,6 +44,14 @@
         <span onclick="togglePassword()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer;">👁️</span>
       </div>
 
+      <!-- ✅ Requisiti password -->
+      <ul id="password-rules" style="font-size: 0.9em; margin-top: 5px; margin-bottom: 10px; color: #555;">
+        <li id="len" style="color: red;">Minimo 8 caratteri</li>
+        <li id="letter" style="color: red;">Almeno 1 lettera</li>
+        <li id="number" style="color: red;">Almeno 1 numero</li>
+        <li id="symbol" style="color: red;">Almeno 1 simbolo (!@#&...)</li>
+      </ul>
+
       <label for="confirm_password">Conferma Password:</label>
       <input type="password" id="confirm_password" name="confirm_password" placeholder="Ripeti la password" required>
 
@@ -75,12 +83,23 @@
     <a href="{{ url_for('index') }}" style="display: block; margin-top: 15px;">Torna alla Home</a>
   </div>
 
-  <!-- 👁️ Script mostra/nascondi password -->
+  <!-- 👁️ Script mostra/nascondi password + validazione -->
   <script>
     function togglePassword() {
       const input = document.getElementById("password");
       input.type = input.type === "password" ? "text" : "password";
     }
+
+    const passwordField = document.getElementById('password');
+    passwordField.addEventListener('input', function () {
+      const val = passwordField.value;
+
+      document.getElementById('len').style.color = val.length >= 8 ? 'green' : 'red';
+      document.getElementById('letter').style.color = /[a-zA-Z]/.test(val) ? 'green' : 'red';
+      document.getElementById('number').style.color = /\d/.test(val) ? 'green' : 'red';
+      document.getElementById('symbol').style.color = /[^a-zA-Z0-9]/.test(val) ? 'green' : 'red';
+    });
   </script>
 </body>
 </html>
+
