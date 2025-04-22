@@ -159,7 +159,7 @@
         '3': ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'],
         '4': ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'],
         '5': ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'],
-        '6': ['09:00','10:00','11:00','12:00','13:00','14:00','15:00'] // Sabato
+        '6': ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','15:30'] // Sabato
       };
 
       const times = slotsPerDay[dayOfWeek] || [];
@@ -186,25 +186,24 @@
 
           const slotPrenotazioni = slots[time] || [];
 
-if (slotPrenotazioni.length > 0) {
-  slotPrenotazioni.forEach(p => {
-    const entry = document.createElement('div');
-    entry.classList.add('slot-entry', 'booked');
-    entry.innerHTML = `
-      ${p.name} (${p.phone})<br>
-      💈 <strong>${p.barber}</strong> – ${p.servizio}<br>
-      <a href="/edit_appointment/${p.id}">✏️</a>
-      <button class="admin-delete-appointment" data-id="${p.id}">🗑️</button>
-    `;
-    div.appendChild(entry);
-  });
-} else {
-  const entry = document.createElement('div');
-  entry.classList.add('slot-entry', 'empty');
-  entry.innerHTML = `Slot libero <a href="/admin_book?date=${dateStr}&time=${time}">➕</a>`;
-  div.appendChild(entry);
-}
-
+          if (slotPrenotazioni.length > 0) {
+            slotPrenotazioni.forEach(p => {
+              const entry = document.createElement('div');
+              entry.classList.add('slot-entry', 'booked');
+              entry.innerHTML = `
+                ${p.name} (${p.phone})<br>
+                💈 <strong>${p.barber}</strong> – ${p.servizio}<br>
+                <a href="/edit_appointment/${p.id}">✏️</a>
+                <button class="admin-delete-appointment" data-id="${p.id}">🗑️</button>
+              `;
+              div.appendChild(entry);
+            });
+          } else {
+            const entry = document.createElement('div');
+            entry.classList.add('slot-entry', 'empty');
+            entry.innerHTML = `Slot libero <a href="/admin_book?date=${dateStr}&time=${time}">➕</a>`;
+            div.appendChild(entry);
+          }
 
           container.appendChild(div);
         });

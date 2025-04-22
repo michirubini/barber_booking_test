@@ -1145,31 +1145,38 @@ def admin_get_day_slots_hair():
     date = data.get('date')
     if not date:
         return jsonify({'error': 'Data mancante'}), 400
-    
+
+    # Calcola il giorno della settimana (0 = lun, …, 6 = dom)
     weekday = datetime.strptime(date, "%Y-%m-%d").weekday()
+    # Blocca lunedì (0) e domenica (6)
     if weekday == 0 or weekday == 6:
         return jsonify({'slots': {}})
 
+    # Connessione al DB
     conn = sqlite3.connect('bookings.db')
     cursor = conn.cursor()
     cursor.execute("""
-    SELECT users.name, users.phone, appointments.service, appointments.time, appointments.id, appointments.barber
-    FROM appointments
-    JOIN users ON users.id = appointments.user_id
-    WHERE appointments.date = ? AND appointments.tipo = 'parrucchiera'
-""", (date,))
-
+        SELECT users.name, users.phone, appointments.service,
+               appointments.time, appointments.id, appointments.barber
+        FROM appointments
+        JOIN users ON users.id = appointments.user_id
+        WHERE appointments.date = ? AND appointments.tipo = 'parrucchiera'
+    """, (date,))
     records = cursor.fetchall()
     conn.close()
 
-    all_times = ['09:00','10:00','11:00','12:00','13:00','14:00',
-                 '15:00','16:00','17:00','18:00','19:00']
-
+    # Definisce tutti gli orari, inclusi i sabati fino alle 15:30
+    all_times = [
+        '09:00','10:00','11:00','12:00','13:00','14:00',
+        '15:00','15:30','16:00','17:00','18:00','19:00'
+    ]
     if weekday == 5:
+        # Sabato fino alle 15:30
         times = [t for t in all_times if t <= '15:30']
     else:
         times = all_times
 
+    # Costruisce lo slot vuoto per ciascun orario
     slots = {t: [] for t in times}
     for name, phone, servizio, time, app_id, barber in records:
         if time in slots:
@@ -1182,6 +1189,7 @@ def admin_get_day_slots_hair():
             })
 
     return jsonify({'slots': slots})
+
 
 
 @app.route('/account', methods=['GET', 'POST'])
