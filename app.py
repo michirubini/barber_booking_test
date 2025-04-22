@@ -785,8 +785,9 @@ def book():
                     return render_template('book.html', error="Devi prenotare almeno un'ora prima.")
             if date_obj.weekday() < 1 or date_obj.weekday() > 5:
                 return render_template('book.html', error="Prenotabile solo da martedì a sabato.")
-            if date_obj.weekday() == 5 and time > '15:00':
-                return render_template('book.html', error="Sabato solo fino alle 15:00.")
+            if date_obj.weekday() == 5 and time > '15:30':
+             return render_template('book.html', error="Sabato solo fino alle 15:30.")
+
         except:
             return render_template('book.html', error="Data o orario non validi.")
 
@@ -1118,7 +1119,7 @@ def admin_get_day_slots():
 
     # Sabato: solo fino alle 15:00
     if weekday == 5:
-        times = [t for t in all_times if t <= '15:00']
+        times = [t for t in all_times if t <= '15:30']
     else:
         times = all_times
 
@@ -1165,7 +1166,7 @@ def admin_get_day_slots_hair():
                  '15:00','16:00','17:00','18:00','19:00']
 
     if weekday == 5:
-        times = [t for t in all_times if t <= '15:00']
+        times = [t for t in all_times if t <= '15:30']
     else:
         times = all_times
 

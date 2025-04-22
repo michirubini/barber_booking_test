@@ -95,7 +95,6 @@
 
       <input type="hidden" name="barber" value="Daniela">
 
-
       <button type="submit">Prenota</button>
     </form>
 
@@ -114,7 +113,7 @@
     const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
     const times = [
       '09:00','10:00','11:00','12:00','13:00','14:00',
-      '15:00','16:00','17:00','18:00','19:00'
+      '15:00','15:30','16:00','17:00','18:00','19:00'
     ];
 
     let currentDate = new Date();
@@ -187,7 +186,7 @@
       fetch('{{ url_for("get_booked_times") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: dateStr })
+        body: JSON.stringify({ date: dateStr, tipo: 'parrucchiera' })
       })
       .then(res => res.json())
       .then(data => {
@@ -195,7 +194,7 @@
         const tooClose = data.not_available_today || [];
 
         times.forEach(t => {
-          const isAfter15 = isSaturday && t > '15:00';
+          const isAfter15 = isSaturday && t > '15:30';
           const isDisabled = booked.includes(t) || tooClose.includes(t) || isAfter15;
 
           const div = document.createElement('div');
@@ -213,7 +212,8 @@
 
           timesContainer.appendChild(div);
         });
-      });
+      })
+      .catch(err => console.error('Errore fetch get_booked_times:', err));
     }
 
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());

@@ -140,7 +140,7 @@
         const booked = data.booked_times;
 
         times.forEach(t => {
-          const isAfter15 = isSaturday && t > '15:00';
+          const isAfter15 = isSaturday && t > '15:30';
           const isDisabled = booked.includes(t) || isAfter15;
 
           const div = document.createElement('div');
