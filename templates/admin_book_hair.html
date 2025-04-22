@@ -14,7 +14,7 @@
       <p style="color: red;">{{ error }}</p>
     {% endif %}
 
-    <form method="POST">
+    <form method="POST" action="{{ url_for('admin_book_hair') }}">
       <label for="name">Nome:</label>
       <input type="text" name="name" required>
 
@@ -26,6 +26,7 @@
 
       <label for="service">Servizio:</label>
       <select name="service" required>
+        <option value="">-- Seleziona un servizio --</option>
         <option value="Taglio + Piega">Taglio + Piega</option>
         <option value="Taglio + Colore + Piega">Taglio + Colore + Piega</option>
       </select>

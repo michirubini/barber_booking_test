@@ -672,11 +672,16 @@ def user_history():
     conn.close()
 
     return render_template('user_history.html', appointments=appointments)
+
+
 @app.route('/admin_hourly_calendar')
 def admin_hourly_calendar():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
-    return render_template('admin_calendar_hourly.html')
+    # prendo la data in query string, es. ?date=2025-04-26
+    selected = request.args.get('date', '')
+    return render_template('admin_calendar_hourly.html', selected_date=selected)
+
 
 
 @app.route('/admin_add_user', methods=['GET', 'POST'])
@@ -754,7 +759,7 @@ def admin_dashboard():
     conn.close()
     return render_template('admin_dashboard.html', appointments=appointments)
 
-from flask import request, session, redirect, url_for, render_template # type: ignore
+from flask import request, session, redirect, url_for, render_template 
 from datetime import datetime, timedelta
 import sqlite3
 import smtplib
@@ -1036,64 +1041,61 @@ def delete_all_appointments():
 def get_booked_times():
     data = request.get_json()
     date = data.get('date')
-    tipo = data.get('tipo', 'barbiere')
+    tipo = data.get('tipo', 'parrucchiera')  # "barbiere" o "parrucchiera"
 
     from datetime import datetime, timedelta
     now = datetime.now()
-    is_today = date == now.strftime("%Y-%m-%d")
+    is_today = (date == now.strftime("%Y-%m-%d"))
 
-    # Calcola il giorno della settimana: lun=0, mar=1, ..., sab=5, dom=6
-    weekday = datetime.strptime(date, "%Y-%m-%d").weekday()
-
-    # Definisci le fasce "double-slot" per i clienti
-    if tipo == 'barbiere' and weekday in [1,2,3,4]:
-        double_slots = ['09:00', '18:30']       # mart–ven
-    elif tipo == 'barbiere' and weekday == 5:
-        double_slots = ['09:00', '15:00']       # sabato
-    else:
-        double_slots = []
-
-    # 1) Conta le prenotazioni per ogni orario
-    conn = sqlite3.connect('bookings.db')
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT time, COUNT(*) 
-        FROM appointments 
-        WHERE date = ? AND tipo = ? 
-        GROUP BY time
-    """, (date, tipo))
-    results = cursor.fetchall()
-    conn.close()
-
-    prenotazioni_per_orario = { row[0]: row[1] for row in results }
-
-    # 2) Costruisci la lista di time-slot da disabilitare per il cliente
-    booked_times = []
-    for t, count in prenotazioni_per_orario.items():
-        # soglia = 2 se è fascia “double”, altrimenti 1
-        soglia = 2 if t in double_slots else 1
-        if count >= soglia:
-            booked_times.append(t)
-
-    # 3) Blocca orari troppo vicini (meno di 1h)
+    # Definisco tutti gli slot da 09:00 a 19:00 ogni 30’
     all_slots = [
         '09:00','09:30','10:00','10:30','11:00','11:30',
         '12:00','12:30','13:00','13:30','14:00','14:30',
         '15:00','15:30','16:00','16:30','17:00','17:30',
         '18:00','18:30','19:00'
     ]
+    # Sabato: limito a 15:30
+    weekday = datetime.strptime(date, "%Y-%m-%d").weekday()
+    if weekday == 5:  # sabato
+        all_slots = [t for t in all_slots if t <= '15:30']
+
+    # Prendo tutte le prenotazioni di quel giorno e quel tipo
+    conn = sqlite3.connect('bookings.db')
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT time, service
+        FROM appointments
+        WHERE date = ? AND tipo = ?
+    """, (date, tipo))
+    recs = cursor.fetchall()
+    conn.close()
+
+    booked_slots = set()
+    for start_time, service in recs:
+        # stabilisco durata: 1h -> 2 slot, 1h30 -> 3 slot
+        slots_needed = 2 if service == 'Taglio + Piega' else 3
+        if service == 'Taglio + Colore + Piega':
+            slots_needed = 3
+        # trovo indice di start_time in all_slots
+        if start_time in all_slots:
+            idx = all_slots.index(start_time)
+            # aggiungo i primi `slots_needed` a booked_slots
+            for k in range(slots_needed):
+                if idx + k < len(all_slots):
+                    booked_slots.add(all_slots[idx + k])
+
+    # blocco anche gli slot troppo vicini (<1h da ora) se oggi
     too_close = []
     if is_today:
         for t in all_slots:
-            slot_time = datetime.strptime(f"{date} {t}", "%Y-%m-%d %H:%M")
-            if slot_time < now + timedelta(hours=1):
+            slot_dt = datetime.strptime(f"{date} {t}", "%Y-%m-%d %H:%M")
+            if slot_dt < now + timedelta(hours=1):
                 too_close.append(t)
 
     return jsonify({
-        'booked_times': booked_times,
+        'booked_times': sorted(booked_slots),
         'not_available_today': too_close
     })
-
 
 
 
@@ -1211,7 +1213,7 @@ def admin_book_hair():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    # Preleva data e orario dalla querystring
+    # Ottieni data e ora dalla query string
     date = request.args.get('date')
     time = request.args.get('time')
 
@@ -1220,55 +1222,62 @@ def admin_book_hair():
         surname = request.form['surname'].strip()
         phone = request.form['phone'].strip()
         service = request.form['service']
-        # Fissa la parrucchiera
-        barber = 'Daniela'
+        date = request.form['date']
+        time = request.form['time']
+        barber = request.form['barber']  # "Daniela"
 
         conn = sqlite3.connect('bookings.db')
         cursor = conn.cursor()
 
-        # Se il numero esiste, riusa utente, altrimenti crea uno nuovo
-        cursor.execute("SELECT id FROM users WHERE phone = ?", (phone,))
-        row = cursor.fetchone()
-        if row:
-            user_id = row[0]
-        else:
-            # genera username univoco
-            base = f"{name.lower()}.{surname.lower()}"[:20]
-            username = base
+        # Cerca utente esistente o creane uno nuovo
+        user = None
+        if phone:
+            cursor.execute("SELECT id FROM users WHERE phone = ?", (phone,))
+            user = cursor.fetchone()
+        if not user:
+            base_username = f"{name.lower()}.{surname.lower()}"[:20]
+            username = base_username
             suffix = 1
-            while cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
-                username = f"{base}{suffix}"
+            while cursor.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone():
+                username = f"{base_username}{suffix}"
                 suffix += 1
             cursor.execute(
-                "INSERT INTO users (username, password, name, surname, phone, email, newsletter_optin) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (username, 'admin-creato', name, surname, phone, None, 0)
+                """
+                INSERT INTO users (username, password, name, surname, phone)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (username, 'admin-creato', name, surname, phone or "ND")
             )
             user_id = cursor.lastrowid
+        else:
+            user_id = user[0]
 
-        # Verifica che lo slot hair non sia già pieno
+        # Verifica disponibilità slot parrucchiera
         cursor.execute(
             "SELECT COUNT(*) FROM appointments WHERE date = ? AND time = ? AND tipo = 'parrucchiera'",
             (date, time)
         )
         if cursor.fetchone()[0] >= 1:
             conn.close()
-            return render_template('admin_book_hair.html',
-                                   date=date, time=time,
-                                   error="Slot già prenotato per la parrucchiera.")
+            return render_template('admin_book_hair.html', date=date, time=time, error="Slot già prenotato")
 
         # Inserimento appuntamento
         cursor.execute(
-            "INSERT INTO appointments (user_id, service, date, time, barber, tipo) "
-            "VALUES (?, ?, ?, ?, ?, 'parrucchiera')",
+            """
+            INSERT INTO appointments (user_id, service, date, time, barber, tipo)
+            VALUES (?, ?, ?, ?, ?, 'parrucchiera')
+            """,
             (user_id, service, date, time, barber)
         )
         conn.commit()
         conn.close()
+
+        # Torna alla vista parrucchiera
         return redirect(url_for('admin_hourly_calendar'))
 
-    # GET → mostra form con data e orario readonly
+    # GET: mostra il form con data/ora precompilati
     return render_template('admin_book_hair.html', date=date, time=time)
+
 
 
 @app.route('/account', methods=['GET', 'POST'])

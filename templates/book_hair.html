@@ -73,14 +73,10 @@
       <input type="hidden" name="time" id="selected-time" required>
 
       <label for="service">Servizio:</label>
-      <select name="service" required>
-        <option value="Taglio + Piega">Taglio + Piega</option>
-        <option value="Taglio + Colore + Piega">Taglio + Colore + Piega</option>
+      <select name="service" id="service-select" required>
+        <option value="Taglio + Piega">Taglio + Piega (1h)</option>
+        <option value="Taglio + Colore + Piega">Taglio + Colore + Piega (1h30)</option>
       </select>
-      
-      
-
-      <br>
 
       <h3>Seleziona una Data</h3>
       <div class="calendar-controls">
@@ -109,11 +105,14 @@
     const monthYearLabel = document.getElementById('month-year');
     const prevBtn = document.getElementById('prev-month');
     const nextBtn = document.getElementById('next-month');
+    const serviceSelect = document.getElementById('service-select');
 
-    const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+    // Time slots every 30 minutes
     const times = [
-      '09:00','10:00','11:00','12:00','13:00','14:00',
-      '15:00','15:30','16:00','17:00','18:00','19:00'
+      '09:00','09:30','10:00','10:30','11:00','11:30',
+      '12:00','12:30','13:00','13:30','14:00','14:30',
+      '15:00','15:30','16:00','16:30','17:00','17:30',
+      '18:00','18:30','19:00'
     ];
 
     let currentDate = new Date();
@@ -128,42 +127,34 @@
       calendar.innerHTML = '';
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date(); today.setHours(0,0,0,0);
 
-      const currentMonth = new Date(year, month);
-      monthYearLabel.textContent = currentMonth.toLocaleString('it-IT', { month: 'long', year: 'numeric' });
+      monthYearLabel.textContent = new Date(year, month)
+        .toLocaleString('it-IT', { month: 'long', year: 'numeric' });
 
       for (let i = 0; i < firstDay; i++) {
-        const empty = document.createElement('div');
-        calendar.appendChild(empty);
+        calendar.appendChild(document.createElement('div'));
       }
 
       for (let d = 1; d <= daysInMonth; d++) {
         const date = new Date(year, month, d);
-        date.setHours(0, 0, 0, 0);
+        date.setHours(0,0,0,0);
         const weekday = date.getDay();
-        const dateStr = formatDate(date);
-
         const div = document.createElement('div');
         div.classList.add('calendar-day');
-        div.innerText = `${d}\n${dayNames[weekday]}`;
+        div.innerText = `${d}\n${['Dom','Lun','Mar','Mer','Gio','Ven','Sab'][weekday]}`;
 
         if (date < today || weekday === 0 || weekday === 1) {
           div.classList.add('disabled');
-          div.dataset.disabled = "true";
         } else {
-          div.dataset.disabled = "false";
+          div.addEventListener('click', () => {
+            calendar.querySelectorAll('.calendar-day')
+              .forEach(el => el.classList.remove('selected'));
+            div.classList.add('selected');
+            dateInput.value = formatDate(date);
+            loadTimes(date);
+          });
         }
-
-        div.addEventListener('click', () => {
-          if (div.dataset.disabled === "true") return;
-          document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected'));
-          div.classList.add('selected');
-          dateInput.value = dateStr;
-          loadTimes(date);
-        });
-
         calendar.appendChild(div);
       }
     }
@@ -172,16 +163,26 @@
       currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
       renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
     });
-
     nextBtn.addEventListener('click', () => {
       currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
       renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+    });
+
+    serviceSelect.addEventListener('change', () => {
+      if (dateInput.value) loadTimes(new Date(dateInput.value));
     });
 
     function loadTimes(date) {
       timesContainer.innerHTML = '';
       const isSaturday = date.getDay() === 6;
       const dateStr = formatDate(date);
+      const duration = serviceSelect.value === 'Taglio + Colore + Piega' ? 1.5 : 1;
+      const slotsNeeded = duration * 2; // 1h=2 slots, 1.5h=3 slots
+
+      // filter for Saturday availability
+      const availableTimes = isSaturday
+        ? times.filter(t => t <= '15:30')
+        : times;
 
       fetch('{{ url_for("get_booked_times") }}', {
         method: 'POST',
@@ -193,18 +194,24 @@
         const booked = data.booked_times || [];
         const tooClose = data.not_available_today || [];
 
-        times.forEach(t => {
-          const isAfter15 = isSaturday && t > '15:30';
-          const isDisabled = booked.includes(t) || tooClose.includes(t) || isAfter15;
+        availableTimes.forEach((t, i) => {
+          let fits = true;
+          for (let k = 0; k < slotsNeeded; k++) {
+            const tt = availableTimes[i + k];
+            if (!tt || booked.includes(tt) || tooClose.includes(tt)) {
+              fits = false;
+              break;
+            }
+          }
 
           const div = document.createElement('div');
           div.classList.add('time-slot');
-          if (isDisabled) div.classList.add('disabled');
+          if (!fits) div.classList.add('disabled');
           div.innerText = t;
-
-          if (!isDisabled) {
+          if (fits) {
             div.addEventListener('click', () => {
-              document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+              timesContainer.querySelectorAll('.time-slot')
+                .forEach(el => el.classList.remove('selected'));
               div.classList.add('selected');
               timeInput.value = t;
             });
@@ -212,8 +219,7 @@
 
           timesContainer.appendChild(div);
         });
-      })
-      .catch(err => console.error('Errore fetch get_booked_times:', err));
+      });
     }
 
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
