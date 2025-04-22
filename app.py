@@ -1190,6 +1190,69 @@ def admin_get_day_slots_hair():
 
     return jsonify({'slots': slots})
 
+@app.route('/admin_book_hair', methods=['GET', 'POST'])
+def admin_book_hair():
+    if 'admin' not in session:
+        return redirect(url_for('login_admin'))
+
+    # Preleva data e orario dalla querystring
+    date = request.args.get('date')
+    time = request.args.get('time')
+
+    if request.method == 'POST':
+        name = request.form['name'].strip()
+        surname = request.form['surname'].strip()
+        phone = request.form['phone'].strip()
+        service = request.form['service']
+        # Fissa la parrucchiera
+        barber = 'Daniela'
+
+        conn = sqlite3.connect('bookings.db')
+        cursor = conn.cursor()
+
+        # Se il numero esiste, riusa utente, altrimenti crea uno nuovo
+        cursor.execute("SELECT id FROM users WHERE phone = ?", (phone,))
+        row = cursor.fetchone()
+        if row:
+            user_id = row[0]
+        else:
+            # genera username univoco
+            base = f"{name.lower()}.{surname.lower()}"[:20]
+            username = base
+            suffix = 1
+            while cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
+                username = f"{base}{suffix}"
+                suffix += 1
+            cursor.execute(
+                "INSERT INTO users (username, password, name, surname, phone, email, newsletter_optin) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (username, 'admin-creato', name, surname, phone, None, 0)
+            )
+            user_id = cursor.lastrowid
+
+        # Verifica che lo slot hair non sia già pieno
+        cursor.execute(
+            "SELECT COUNT(*) FROM appointments WHERE date = ? AND time = ? AND tipo = 'parrucchiera'",
+            (date, time)
+        )
+        if cursor.fetchone()[0] >= 1:
+            conn.close()
+            return render_template('admin_book_hair.html',
+                                   date=date, time=time,
+                                   error="Slot già prenotato per la parrucchiera.")
+
+        # Inserimento appuntamento
+        cursor.execute(
+            "INSERT INTO appointments (user_id, service, date, time, barber, tipo) "
+            "VALUES (?, ?, ?, ?, ?, 'parrucchiera')",
+            (user_id, service, date, time, barber)
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for('admin_hourly_calendar'))
+
+    # GET → mostra form con data e orario readonly
+    return render_template('admin_book_hair.html', date=date, time=time)
 
 
 @app.route('/account', methods=['GET', 'POST'])
