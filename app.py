@@ -1036,16 +1036,26 @@ def delete_all_appointments():
 def get_booked_times():
     data = request.get_json()
     date = data.get('date')
-    tipo = data.get('tipo', 'barbiere')  # "barbiere" o "parrucchiera"
+    tipo = data.get('tipo', 'barbiere')
 
     from datetime import datetime, timedelta
     now = datetime.now()
     is_today = date == now.strftime("%Y-%m-%d")
 
+    # Calcola il giorno della settimana: lun=0, mar=1, ..., sab=5, dom=6
+    weekday = datetime.strptime(date, "%Y-%m-%d").weekday()
+
+    # Definisci le fasce "double-slot" per i clienti
+    if tipo == 'barbiere' and weekday in [1,2,3,4]:
+        double_slots = ['09:00', '18:30']       # mart–ven
+    elif tipo == 'barbiere' and weekday == 5:
+        double_slots = ['09:00', '15:00']       # sabato
+    else:
+        double_slots = []
+
+    # 1) Conta le prenotazioni per ogni orario
     conn = sqlite3.connect('bookings.db')
     cursor = conn.cursor()
-
-    # 📊 Conta le prenotazioni per ogni orario (solo per barbiere)
     cursor.execute("""
         SELECT time, COUNT(*) 
         FROM appointments 
@@ -1055,18 +1065,23 @@ def get_booked_times():
     results = cursor.fetchall()
     conn.close()
 
-    # 👤 Il cliente può prenotare solo se ci sono meno di 1 prenotazione
-    prenotazioni_per_orario = {row[0]: row[1] for row in results}
-    booked_times = [time for time, count in prenotazioni_per_orario.items() if count >= 1]
+    prenotazioni_per_orario = { row[0]: row[1] for row in results }
 
-    # ⏳ Blocca orari troppo vicini (meno di 1 ora da adesso)
+    # 2) Costruisci la lista di time-slot da disabilitare per il cliente
+    booked_times = []
+    for t, count in prenotazioni_per_orario.items():
+        # soglia = 2 se è fascia “double”, altrimenti 1
+        soglia = 2 if t in double_slots else 1
+        if count >= soglia:
+            booked_times.append(t)
+
+    # 3) Blocca orari troppo vicini (meno di 1h)
     all_slots = [
         '09:00','09:30','10:00','10:30','11:00','11:30',
         '12:00','12:30','13:00','13:30','14:00','14:30',
         '15:00','15:30','16:00','16:30','17:00','17:30',
         '18:00','18:30','19:00'
     ]
-
     too_close = []
     if is_today:
         for t in all_slots:
@@ -1078,6 +1093,7 @@ def get_booked_times():
         'booked_times': booked_times,
         'not_available_today': too_close
     })
+
 
 
 
