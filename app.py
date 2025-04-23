@@ -164,6 +164,15 @@ def login_admin():
 
     return render_template('login_admin.html', error=error)
 
+def is_password_strong(password):
+    return (
+        len(password) >= 8 and
+        re.search(r'[A-Za-z]', password) and
+        re.search(r'\d', password) and
+        re.search(r'[^A-Za-z0-9]', password)
+    )
+
+
 @app.route('/reset_password', methods=['GET', 'POST'])
 def reset_password():
     token = request.args.get('token')
@@ -191,7 +200,7 @@ def reset_password():
 
     user_id, expires_at_str, used = token_data
 
-    # ✅ Fix conversione con millisecondi
+    # Conversione data token
     try:
         expires_at = datetime.fromisoformat(expires_at_str)
     except ValueError:
@@ -201,23 +210,27 @@ def reset_password():
     if used:
         conn.close()
         return render_template("reset_password.html", error="Questo link è già stato utilizzato.", show_form=False)
-
     if datetime.now() > expires_at:
         conn.close()
         return render_template("reset_password.html", error="Il link per reimpostare la password è scaduto.", show_form=False)
 
-    # POST → aggiorna la password
+    # === POST: aggiorna la password ===
     if request.method == 'POST':
         new_password = request.form['new_password']
         confirm_password = request.form['confirm_password']
 
+        # 1) checks matching
         if new_password != confirm_password:
-            return render_template("reset_password.html", error="Le password non coincidono.", show_form=True)
+            error = "Le password non coincidono."
+            return render_template("reset_password.html", error=error, show_form=True)
 
-        # Cripta la nuova password
+        # 2) server-side strength check
+        if not is_password_strong(new_password):
+            error = "La password deve contenere almeno 8 caratteri, una lettera, un numero e un simbolo."
+            return render_template("reset_password.html", error=error, show_form=True)
+
+        # 3) aggiorna e marca token come usato
         hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-        # Aggiorna nel DB e segna il token come usato
         cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, user_id))
         cursor.execute("UPDATE password_tokens SET used = 1 WHERE token = ?", (token,))
         conn.commit()
@@ -226,8 +239,10 @@ def reset_password():
         success = "✅ La tua password è stata reimpostata con successo!"
         return render_template("reset_password.html", success=success, show_form=False)
 
+    # GET – mostra il form
     conn.close()
     return render_template("reset_password.html", show_form=True)
+
 
 
 @app.route('/login_user', methods=['GET', 'POST'])
