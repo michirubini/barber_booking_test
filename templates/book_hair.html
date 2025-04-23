@@ -94,7 +94,8 @@
       <button type="submit">Prenota</button>
     </form>
 
-    <a href="{{ url_for('index') }}">Torna alla Home</a>
+    <!-- Qui modificato per tornare alla Dashboard utente -->
+    <a href="{{ url_for('user_dashboard') }}">← Torna alla Dashboard</a>
   </div>
 
   <script>
@@ -177,9 +178,9 @@
       const isSaturday = date.getDay() === 6;
       const dateStr = formatDate(date);
       const duration = serviceSelect.value === 'Taglio + Colore + Piega' ? 1.5 : 1;
-      const slotsNeeded = duration * 2; // 1h=2 slots, 1.5h=3 slots
+      const slotsNeeded = duration * 2; // 1h=2 slot, 1.5h=3 slot
 
-      // filter for Saturday availability
+      // filtro per sabato
       const availableTimes = isSaturday
         ? times.filter(t => t <= '15:30')
         : times;

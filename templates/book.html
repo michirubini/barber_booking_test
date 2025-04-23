@@ -78,7 +78,6 @@
 
       <br>
 
-
       <h3>Seleziona una Data</h3>
       <div class="calendar-controls">
         <button type="button" id="prev-month">◀</button>
@@ -93,7 +92,8 @@
       <button type="submit">Prenota</button>
     </form>
 
-    <a href="{{ url_for('index') }}">Torna alla Home</a>
+    <!-- Modifica qui: punta alla dashboard utente -->
+    <a href="{{ url_for('user_dashboard') }}">← Torna alla Dashboard</a>
   </div>
 
   <script>
@@ -191,7 +191,7 @@
         const tooClose = data.not_available_today || [];
 
         times.forEach(t => {
-          const isAfter15 = isSaturday && t > '15:30';
+          const isAfter15 = isSaturday && t > '15:00';
           const isDisabled = booked.includes(t) || tooClose.includes(t) || isAfter15;
 
           const div = document.createElement('div');
@@ -216,3 +216,4 @@
   </script>
 </body>
 </html>
+
