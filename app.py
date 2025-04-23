@@ -1544,61 +1544,66 @@ def admin_book():
     time = request.args.get('time')
 
     if request.method == 'POST':
-        name = request.form['name'].strip()
+        name    = request.form['name'].strip()
         surname = request.form['surname'].strip()
-        phone = request.form['phone'].strip()
+        phone   = request.form['phone'].strip()
         service = request.form['service']
-        date = request.form['date']
-        time = request.form['time']
-        barber = request.form['barber']
+        date    = request.form['date']
+        time    = request.form['time']
+        barber  = request.form['barber']
 
+        # calcolo durata del servizio
+        duration_min = 90 if service == 'Taglio + Colore + Piega' else 60
+        fmt = "%Y-%m-%d %H:%M"
+        start_dt = datetime.strptime(f"{date} {time}", fmt)
+        end_dt   = start_dt + timedelta(minutes=duration_min)
+
+        #--- Controllo sovrapposizioni per questa parrucchiera ---
         conn = sqlite3.connect('bookings.db')
         cursor = conn.cursor()
+        cursor.execute("""
+            SELECT service, date, time
+            FROM appointments
+            WHERE barber = ? AND date = ?
+        """, (barber, date))
+        existing = cursor.fetchall()
 
-        user = None
+        for svc, d, t in existing:
+            # calcolo durata esistente
+            dur_ex = 90 if svc == 'Taglio + Colore + Piega' else 60
+            app_start = datetime.strptime(f"{d} {t}", fmt)
+            app_end   = app_start + timedelta(minutes=dur_ex)
 
-        # 🔍 Se il numero è stato inserito, cerca l'utente
-        if phone:
-            cursor.execute("SELECT id FROM users WHERE phone = ?", (phone,))
-            user = cursor.fetchone()
+            # se overlap
+            if not (end_dt <= app_start or start_dt >= app_end):
+                conn.close()
+                error = ("Non c'è abbastanza tempo libero: "
+                         f"l'appuntamento esistente dalle {t} "
+                         f"durante {dur_ex//60}h{dur_ex%60*30}m")
+                return render_template('admin_book_hair.html',
+                                       date=date, time=time,
+                                       error=error)
 
-        # 👤 Se non esiste, crea nuovo utente con username univoco
-        if not user:
-            base_username = f"{name.lower()}.{surname.lower()}"[:20]
-            username = base_username
-            suffix = 1
-
-            cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
-            while cursor.fetchone():
-                username = f"{base_username}{suffix}"
-                cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
-                suffix += 1
-
-            cursor.execute("""
-                INSERT INTO users (username, password, name, surname, phone)
-                VALUES (?, ?, ?, ?, ?)
-            """, (username, 'admin-creato', name, surname, phone if phone else "ND"))
-            user_id = cursor.lastrowid
-        else:
-            user_id = user[0]
-
-        # ⛔️ Controllo: massimo 2 appuntamenti nello stesso slot
+        # un massimo di 2 prenotazioni per slot già c’era
         cursor.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND time = ?", (date, time))
         if cursor.fetchone()[0] >= 2:
             conn.close()
-            return render_template("admin_book.html", date=date, time=time, error="Slot già pieno")
-
-        # ✅ Inserimento appuntamento
+            return render_template('admin_book_hair.html',
+                                   date=date, time=time,
+                                   error="Slot già pieno")
+        
+        # OK, inserisco
         cursor.execute("""
-            INSERT INTO appointments (user_id, service, date, time, barber)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO appointments (user_id, service, date, time, barber, tipo)
+            VALUES (?, ?, ?, ?, ?, 'parrucchiera')
         """, (user_id, service, date, time, barber))
-
         conn.commit()
         conn.close()
+
         return redirect(url_for('admin_dashboard'))
 
-    return render_template("admin_book.html", date=date, time=time)
+    # GET – form vuoto
+    return render_template('admin_book_hair.html', date=date, time=time)
 
 if __name__ == '__main__':
     app.run(debug=True)
