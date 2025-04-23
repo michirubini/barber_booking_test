@@ -39,49 +39,16 @@
       font-weight: bold;
       white-space: pre-line;
     }
-    .calendar-day:hover {
-      background-color: #d0d0d0;
-    }
-    .calendar-day.selected {
-      background-color: #007bff;
-      color: white;
-    }
-    .calendar-day.today {
-      border: 2px solid #28a745;
-    }
-    .slot {
-      border: 1px solid #ccc;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 8px 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .slot-time {
-      font-weight: bold;
-    }
-    .slot-entry {
-      padding: 5px;
-      border-radius: 4px;
-      margin-top: 5px;
-    }
-    .slot-entry.booked {
-      background-color: #ffe6e6;
-    }
-    .slot-entry.empty {
-      background-color: #e6ffe6;
-      font-style: italic;
-      color: #666;
-      position: relative;
-    }
-    .slot-entry.empty.disabled {
-      background-color: #f0f0f0;
-      color: #999;
-      cursor: not-allowed;
-    }
-    .slot-entry.empty.disabled a {
-      display: none;
-    }
+    .calendar-day:hover { background-color: #d0d0d0; }
+    .calendar-day.selected { background-color: #007bff; color: white; }
+    .calendar-day.today { border: 2px solid #28a745; }
+    .slot { border: 1px solid #ccc; padding: 10px; border-radius: 5px; margin: 8px 0; display: flex; flex-direction: column; }
+    .slot-time { font-weight: bold; }
+    .slot-entry { padding: 5px; border-radius: 4px; margin-top: 5px; }
+    .slot-entry.booked { background-color: #ffe6e6; }
+    .slot-entry.empty { background-color: #e6ffe6; font-style: italic; color: #666; position: relative; }
+    .slot-entry.empty.disabled { background-color: #f0f0f0; color: #999; cursor: not-allowed; }
+    .slot-entry.empty.disabled a { display: none; }
   </style>
 </head>
 <body>
@@ -106,14 +73,22 @@
   <script>
     let currentDate = new Date();
 
-    // Genera lista di slot ogni mezz'ora, fino alle 15:30 il sabato
+    // Genera lista di slot ogni mezz'ora,
+    // fino alle 15:30 il sabato, o 19:00 dal martedì al venerdì
     function generateTimes(dayOfWeek) {
       const slots = [];
-      for (let h = 9; h <= 19; h++) {
-        ['00','30'].forEach(mm => {
-          slots.push(`${String(h).padStart(2,'0')}:${mm}`);
-        });
+      const lastHour = (dayOfWeek === 6) ? 15 : 19;
+
+      for (let h = 9; h <= lastHour; h++) {
+        // sempre :00
+        slots.push(`${String(h).padStart(2,'0')}:00`);
+        // :30 solo se non è l'ultima ora
+        if (h < lastHour) {
+          slots.push(`${String(h).padStart(2,'0')}:30`);
+        }
       }
+
+      // sabato: filtra oltre 15:30
       if (dayOfWeek === 6) {
         return slots.filter(t => t <= '15:30');
       }
@@ -122,8 +97,8 @@
 
     function formatDate(d) {
       const yyyy = d.getFullYear();
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
     }
 
@@ -134,13 +109,12 @@
       const dayNames = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
       const first = (new Date(year, month, 1).getDay() + 6) % 7;
       const days = new Date(year, month + 1, 0).getDate();
-      lbl.textContent = new Date(year, month).toLocaleString('it-IT',{month:'long',year:'numeric'});
+      lbl.textContent = new Date(year, month).toLocaleString('it-IT', { month: 'long', year: 'numeric' });
 
       const today = new Date(); today.setHours(0,0,0,0);
       for (let i = 0; i < first; i++) cal.appendChild(document.createElement('div'));
       for (let d = 1; d <= days; d++) {
-        const dt = new Date(year, month, d);
-        dt.setHours(0,0,0,0);
+        const dt = new Date(year, month, d); dt.setHours(0,0,0,0);
         const cell = document.createElement('div');
         cell.className = 'calendar-day';
         cell.textContent = `${d}\n${dayNames[dt.getDay()]}`;
@@ -148,8 +122,8 @@
         if (dt.getDay() === 0 || dt.getDay() === 1) {
           cell.style.opacity = '.3'; cell.style.pointerEvents = 'none';
         } else {
-          cell.addEventListener('click', ()=>{
-            document.querySelectorAll('.calendar-day').forEach(x=>x.classList.remove('selected'));
+          cell.addEventListener('click', () => {
+            document.querySelectorAll('.calendar-day').forEach(x => x.classList.remove('selected'));
             cell.classList.add('selected');
             document.getElementById('selected-date-label').textContent = `Appuntamenti per ${formatDate(dt)}`;
             loadDaySlots(formatDate(dt), dt.getDay());
@@ -159,7 +133,7 @@
       }
       // auto-click oggi
       if (year === today.getFullYear() && month === today.getMonth()) {
-        document.querySelectorAll('.calendar-day.today').forEach(x=>x.click());
+        document.querySelectorAll('.calendar-day.today').forEach(x => x.click());
       }
     }
 
@@ -167,36 +141,48 @@
       const cont = document.getElementById('admin-slots');
       cont.innerHTML = 'Caricamento...';
       const times = generateTimes(dayOfWeek);
-      fetch('/admin_get_day_slots_hair',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        credentials:'include',
-        body:JSON.stringify({date:dateStr})
+
+      fetch('/admin_get_day_slots_hair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ date: dateStr })
       })
-      .then(r=>r.json()).then(data=>{
-        cont.innerHTML='';
+      .then(r => r.json())
+      .then(data => {
+        cont.innerHTML = '';
         const raw = data.slots;
         const blocked = new Set();
+
         // blocco slot in base alla durata
-        times.forEach((t,i)=>{
-          (raw[t]||[]).forEach(app=>{
-            const dur = app.servizio==='Taglio + Colore + Piega'?3:2;
-            for(let k=0;k<dur;k++){ if(times[i+k]) blocked.add(times[i+k]); }
+        times.forEach((t, i) => {
+          (raw[t] || []).forEach(app => {
+            const dur = app.servizio === 'Taglio + Colore + Piega' ? 3 : 2;
+            for (let k = 0; k < dur; k++) {
+              if (times[i + k]) blocked.add(times[i + k]);
+            }
           });
         });
-        times.forEach(t=>{
+
+        times.forEach(t => {
           const wrap = document.createElement('div'); wrap.classList.add('slot');
           const tl = document.createElement('div'); tl.classList.add('slot-time'); tl.textContent = t;
           wrap.appendChild(tl);
-          const apps = raw[t]||[];
+
+          const apps = raw[t] || [];
           if (apps.length) {
-            apps.forEach(p=>{
-              const e = document.createElement('div'); e.classList.add('slot-entry','booked');
-              e.innerHTML = `${p.name} (${p.phone})<br>💈 <strong>${p.barber}</strong> – ${p.servizio}<br><a href="/edit_appointment/${p.id}">✏️</a> <button class="admin-delete-appointment" data-id="${p.id}">🗑️</button>`;
+            apps.forEach(p => {
+              const e = document.createElement('div'); e.classList.add('slot-entry', 'booked');
+              e.innerHTML = `
+                ${p.name} (${p.phone})<br>
+                💈 <strong>${p.barber}</strong> – ${p.servizio}<br>
+                <a href="/edit_appointment/${p.id}">✏️</a>
+                <button class="admin-delete-appointment" data-id="${p.id}">🗑️</button>
+              `;
               wrap.appendChild(e);
             });
           } else {
-            const e = document.createElement('div'); e.classList.add('slot-entry','empty');
+            const e = document.createElement('div'); e.classList.add('slot-entry', 'empty');
             if (blocked.has(t)) e.classList.add('disabled');
             e.innerHTML = `Slot libero <a href="/admin_book_hair?date=${dateStr}&time=${t}">➕</a>`;
             wrap.appendChild(e);
@@ -206,16 +192,23 @@
       });
     }
 
-    function prevMonth(){ currentDate=new Date(currentDate.getFullYear(),currentDate.getMonth()-1,1); renderCalendar(currentDate.getFullYear(),currentDate.getMonth()); }
-    function nextMonth(){ currentDate=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,1); renderCalendar(currentDate.getFullYear(),currentDate.getMonth()); }
-    renderCalendar(currentDate.getFullYear(),currentDate.getMonth());
+    function prevMonth() {
+      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1);
+      renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+    }
+    function nextMonth() {
+      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1);
+      renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+    }
+    renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
   </script>
   <script>
-    document.addEventListener('click', e=>{
+    document.addEventListener('click', e => {
       if (e.target.classList.contains('admin-delete-appointment')) {
         const id = e.target.dataset.id;
-        if (confirm('Eliminare questo appuntamento?')){
-          fetch(`/admin_delete_appointment/${id}`,{method:'POST'}).then(r=>r.ok?location.reload():alert('Errore'));
+        if (confirm('Eliminare questo appuntamento?')) {
+          fetch(`/admin_delete_appointment/${id}`, { method: 'POST' })
+            .then(r => r.ok ? location.reload() : alert('Errore durante l\'eliminazione.'));
         }
       }
     });
