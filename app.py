@@ -1210,54 +1210,72 @@ def admin_book_hair():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    # Prendo date e time da querystring
+    # data e orario passati da GET
     date = request.args.get('date')
     time = request.args.get('time')
 
     if request.method == 'POST':
-        name = request.form['name'].strip()
+        name    = request.form['name'].strip()
         surname = request.form['surname'].strip()
-        phone = request.form['phone'].strip()
+        phone   = request.form['phone'].strip()
         service = request.form['service']
-        barber = 'Daniela'  # Parrucchiera fissa
-        # date e time arrivano dal form in campi nascosti
-        date = request.form['date']
-        time = request.form['time']
+        date    = request.form['date']
+        time    = request.form['time']
+        barber  = request.form['barber']  # "Daniela"
+
+        # Calcola durata in minuti
+        if service == 'Taglio + Colore + Piega':
+            duration_min = 90
+        else:
+            # Taglio + Piega dura 60
+            duration_min = 60
 
         conn = sqlite3.connect('bookings.db')
         cursor = conn.cursor()
 
-        # Cerco l'utente per telefono, altrimenti lo creo
+        # Cerca o crea utente
         cursor.execute("SELECT id FROM users WHERE phone = ?", (phone,))
-        user = cursor.fetchone()
-        if not user:
-            # genero username unico
+        u = cursor.fetchone()
+        if u:
+            user_id = u[0]
+        else:
+            # genera username univoco
             base = f"{name.lower()}.{surname.lower()}"[:20]
-            username = base
-            suffix = 1
-            while cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
-                username = f"{base}{suffix}"
+            uname = base; suffix = 1
+            cursor.execute("SELECT 1 FROM users WHERE username = ?", (uname,))
+            while cursor.fetchone():
+                uname = f"{base}{suffix}"
                 suffix += 1
+                cursor.execute("SELECT 1 FROM users WHERE username = ?", (uname,))
             cursor.execute("""
                 INSERT INTO users (username, password, name, surname, phone)
                 VALUES (?, ?, ?, ?, ?)
-            """, (username, 'admin-creato', name, surname, phone))
+            """, (uname, 'admin-creato', name, surname, phone or 'ND'))
             user_id = cursor.lastrowid
-        else:
-            user_id = user[0]
 
-        # Controllo che non ci sia già 1 prenotazione per quel slot (parrucchiera sola)
+        # Controllo sovrapposizioni
+        fmt = "%Y-%m-%d %H:%M"
+        start_dt = datetime.strptime(f"{date} {time}", fmt)
+        end_dt   = start_dt + timedelta(minutes=duration_min)
+
         cursor.execute("""
-            SELECT COUNT(*) FROM appointments
-            WHERE date = ? AND time = ? AND tipo = 'parrucchiera'
-        """, (date, time))
-        if cursor.fetchone()[0] >= 1:
-            conn.close()
-            return render_template('admin_book_hair.html',
-                                   date=date, time=time,
-                                   error="Slot già occupato da un'altra prenotazione")
+            SELECT service, time
+            FROM appointments
+            WHERE date = ?
+              AND barber = ?
+              AND tipo = 'parrucchiera'
+        """, (date, barber))
+        for svc, t0 in cursor.fetchall():
+            d0 = 90 if svc=='Taglio + Colore + Piega' else 60
+            s0 = datetime.strptime(f"{date} {t0}", fmt)
+            e0 = s0 + timedelta(minutes=d0)
+            # se i due intervalli si intersecano
+            if not (end_dt <= s0 or start_dt >= e0):
+                conn.close()
+                err = f"Intervallo {time}–{(start_dt+timedelta(minutes=duration_min)).strftime('%H:%M')} in conflitto con un altro appuntamento."
+                return render_template('admin_book_hair.html', date=date, time=time, error=err)
 
-        # Inserisco l'appuntamento con tipo='parrucchiera'
+        # Se è tutto libero, inserisci
         cursor.execute("""
             INSERT INTO appointments (user_id, service, date, time, barber, tipo)
             VALUES (?, ?, ?, ?, ?, 'parrucchiera')
@@ -1267,7 +1285,7 @@ def admin_book_hair():
         conn.close()
         return redirect(url_for('admin_hourly_calendar'))
 
-    # GET → mostro form con date/time precompilati
+    # GET: mostra form
     return render_template('admin_book_hair.html', date=date, time=time)
 
 
