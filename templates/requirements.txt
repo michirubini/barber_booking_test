@@ -1,3 +1,4 @@
 Flask
-bcrypt
 gunicorn
+bcrypt
+flask_mail
