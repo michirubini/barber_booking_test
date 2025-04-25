@@ -1,10 +1,20 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify # type: ignore
-import sqlite3
 from datetime import datetime, timedelta
 import bcrypt
 import uuid
 import re
 
+import psycopg2
+from psycopg2 import sql
+
+def get_connection():
+    return psycopg2.connect(
+        dbname="barber_booking",
+        user="postgres",
+        password="admin", 
+        host="localhost",
+        port="5432"
+    )
 
 
 
@@ -13,32 +23,63 @@ app.secret_key = 'supersecretkey'
 
 # ---------- INIZIALIZZAZIONE DB ----------
 def init_db():
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
+
+    # Tabella utenti
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
             name TEXT NOT NULL,
             surname TEXT NOT NULL,
-            phone TEXT NOT NULL
+            phone TEXT NOT NULL,
+            email TEXT UNIQUE,
+            newsletter_optin INTEGER DEFAULT 0
         )
     ''')
+
+    # Tabella appuntamenti
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS appointments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
             service TEXT NOT NULL,
             date TEXT NOT NULL,
             time TEXT NOT NULL,
+            barber TEXT DEFAULT 'Mattia',
+            tipo TEXT DEFAULT 'barbiere',
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
+
+    # Tabella admins
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admins (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+
+    # Tabella token per reset password
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
-init_db()
+
+
 
 # ---------- ROTTE PRINCIPALI ----------
 @app.route('/')
@@ -64,10 +105,10 @@ def forgot_password():
 
     if request.method == 'POST':
         email = request.form['email']
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
         if user:
@@ -77,7 +118,7 @@ def forgot_password():
 
             cursor.execute("""
                 INSERT INTO password_tokens (user_id, token, expires_at)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
             """, (user_id, token, expires_at))
             conn.commit()
 
@@ -134,9 +175,9 @@ def admin_delete_appointment(appointment_id):
     if 'admin' not in session:
         return '', 403
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+    cursor.execute("DELETE FROM appointments WHERE id = %s", (appointment_id,))
     conn.commit()
     conn.close()
     return '', 204
@@ -150,13 +191,16 @@ def login_admin():
         username = request.form['username']
         password = request.form['password']
 
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM admins WHERE username = ?", (username,))
+
+        # Recupera l'admin (id, username, password_hash)
+        cursor.execute("SELECT id, username, password FROM admins WHERE username = %s", (username,))
         admin = cursor.fetchone()
         conn.close()
 
-        if admin and bcrypt.checkpw(password.encode('utf-8'), admin[2].encode('utf-8')):  # admin[2] = password hash
+        # Se trovato e la password combacia
+        if admin and bcrypt.checkpw(password.encode('utf-8'), admin[2].encode('utf-8')):
             session['admin'] = admin[0]
             return redirect(url_for('admin_dashboard'))
         else:
@@ -164,13 +208,6 @@ def login_admin():
 
     return render_template('login_admin.html', error=error)
 
-def is_password_strong(password):
-    return (
-        len(password) >= 8 and
-        re.search(r'[A-Za-z]', password) and
-        re.search(r'\d', password) and
-        re.search(r'[^A-Za-z0-9]', password)
-    )
 
 
 @app.route('/reset_password', methods=['GET', 'POST'])
@@ -183,14 +220,14 @@ def reset_password():
     if not token:
         return "Token mancante", 400
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     # Verifica token esistente
     cursor.execute("""
         SELECT pt.user_id, pt.expires_at, pt.used
         FROM password_tokens pt
-        WHERE pt.token = ?
+        WHERE pt.token = %s
     """, (token,))
     token_data = cursor.fetchone()
 
@@ -231,8 +268,8 @@ def reset_password():
 
         # 3) aggiorna e marca token come usato
         hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, user_id))
-        cursor.execute("UPDATE password_tokens SET used = 1 WHERE token = ?", (token,))
+        cursor.execute("UPDATE users SET password = %s WHERE id = %s", (hashed, user_id))
+        cursor.execute("UPDATE password_tokens SET used = 1 WHERE token = %s", (token,))
         conn.commit()
         conn.close()
 
@@ -252,9 +289,9 @@ def login_user():
         username = request.form['username']
         password = request.form['password']
 
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         user = cursor.fetchone()
         conn.close()
 
@@ -279,23 +316,23 @@ def admin_users():
     offset = (page - 1) * per_page
     search_query = request.args.get('search', '').strip()
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     if search_query:
         search = f"%{search_query}%"
         cursor.execute("""
             SELECT COUNT(*) FROM users
-            WHERE name LIKE ? OR surname LIKE ? OR phone LIKE ? OR email LIKE ?
+            WHERE name LIKE %s OR surname LIKE %s OR phone LIKE %s OR email LIKE %s
         """, (search, search, search, search))
         total_users = cursor.fetchone()[0]
 
         cursor.execute("""
             SELECT id, name, surname, phone, email, username
             FROM users
-            WHERE name LIKE ? OR surname LIKE ? OR phone LIKE ? OR email LIKE ?
+            WHERE name LIKE %s OR surname LIKE %s OR phone LIKE %s OR email LIKE %s
             ORDER BY id
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
         """, (search, search, search, search, per_page, offset))
     else:
         cursor.execute("SELECT COUNT(*) FROM users")
@@ -305,7 +342,7 @@ def admin_users():
             SELECT id, name, surname, phone, email, username
             FROM users
             ORDER BY id
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
         """, (per_page, offset))
 
     users = cursor.fetchall()
@@ -329,13 +366,13 @@ def delete_selected_users():
 
     selected_ids = request.form.getlist('selected_users')
     if selected_ids:
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
 
         # Prima cancella gli appuntamenti legati
-        cursor.executemany("DELETE FROM appointments WHERE user_id = ?", [(uid,) for uid in selected_ids])
+        cursor.executemany("DELETE FROM appointments WHERE user_id = %s", [(uid,) for uid in selected_ids])
         # Poi elimina gli utenti
-        cursor.executemany("DELETE FROM users WHERE id = ?", [(uid,) for uid in selected_ids])
+        cursor.executemany("DELETE FROM users WHERE id = %s", [(uid,) for uid in selected_ids])
 
         conn.commit()
         conn.close()
@@ -347,7 +384,7 @@ def admin_edit_user(user_id):
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     if request.method == 'POST':
@@ -362,13 +399,13 @@ def admin_edit_user(user_id):
         newsletter = 1 if request.form.get('newsletter') == 'on' else 0
 
         # Controlli duplicati
-        cursor.execute("SELECT id FROM users WHERE username = ? AND id != ?", (username, user_id))
+        cursor.execute("SELECT id FROM users WHERE username = %s AND id != %s", (username, user_id))
         if cursor.fetchone():
             conn.close()
             return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
                                    error="Username già in uso")
 
-        cursor.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id))
+        cursor.execute("SELECT id FROM users WHERE email = %s AND id != %s", (email, user_id))
         if cursor.fetchone():
             conn.close()
             return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
@@ -377,8 +414,8 @@ def admin_edit_user(user_id):
         # Salva modifiche
         cursor.execute("""
             UPDATE users 
-            SET name = ?, surname = ?, phone = ?, email = ?, username = ?, password = ?, newsletter_optin = ?
-            WHERE id = ?
+            SET name = %s, surname = %s, phone = %s, email = %s, username = %s, password = %s, newsletter_optin = %s
+            WHERE id = %s
         """, (name, surname, phone, email, username, password, newsletter, user_id))
 
         conn.commit()
@@ -386,7 +423,7 @@ def admin_edit_user(user_id):
         return redirect(url_for('admin_users'))
 
     # Carica dati utente (incluso newsletter_optin)
-    cursor.execute("SELECT name, surname, phone, email, username, password, newsletter_optin FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT name, surname, phone, email, username, password, newsletter_optin FROM users WHERE id = %s", (user_id,))
     user = cursor.fetchone()
     conn.close()
 
@@ -403,10 +440,10 @@ def delete_account():
 
     user_id = session['user_id']
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM appointments WHERE user_id = ?", (user_id,))
-    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    cursor.execute("DELETE FROM appointments WHERE user_id = %s", (user_id,))
+    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
     conn.commit()
     conn.close()
 
@@ -421,11 +458,11 @@ def admin_delete_user(user_id):
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM appointments WHERE user_id = ?", (user_id,))
-    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    cursor.execute("DELETE FROM appointments WHERE user_id = %s", (user_id,))
+    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
 
     conn.commit()
     conn.close()
@@ -542,17 +579,17 @@ def register():
         # ✅ Hash password con bcrypt
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
 
         # ❌ Controllo username già esistente
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         if cursor.fetchone():
             conn.close()
             return render_template('register.html', error="Username già esistente")
 
         # ❌ Controllo email già registrata
-        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         if cursor.fetchone():
             conn.close()
             return render_template('register.html', error="Email già registrata")
@@ -560,7 +597,7 @@ def register():
         # ✅ Inserimento nuovo utente con password hashata
         cursor.execute("""
             INSERT INTO users (username, password, name, surname, phone, email, newsletter_optin)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (username, hashed_password, name, surname, phone, email, newsletter))
 
         conn.commit()
@@ -581,7 +618,7 @@ def admin_marketing():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     users = []
     min_days = None
@@ -631,8 +668,8 @@ def admin_marketing():
                     GROUP BY user_id
                 ) a ON u.id = a.user_id
                 WHERE u.newsletter_optin = 1
-                AND julianday('now') - julianday(a.last_date) >= ?
-                AND julianday('now') - julianday(a.last_date) < ?
+                AND julianday('now') - julianday(a.last_date) >= %s
+                AND julianday('now') - julianday(a.last_date) < %s
             """, (min_days, max_days))
             users = cursor.fetchall()
 
@@ -646,7 +683,7 @@ def user_dashboard():
         return redirect(url_for('login_user'))
 
     user_id = session['user_id']
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -655,7 +692,7 @@ def user_dashboard():
     cursor.execute("""
         SELECT id, service, date, time
         FROM appointments
-        WHERE user_id = ? AND (date > ? OR (date = ? AND time >= ?))
+        WHERE user_id = %s AND (date > %s OR (date = %s AND time >= %s))
         ORDER BY date ASC, time ASC
     """, (user_id, today, today, now_time))
 
@@ -673,13 +710,13 @@ def user_history():
     today = datetime.now().strftime("%Y-%m-%d")
     now_time = datetime.now().strftime("%H:%M")
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT service, date, time
         FROM appointments
-        WHERE user_id = ? AND (date < ? OR (date = ? AND time < ?))
+        WHERE user_id = %s AND (date < %s OR (date = %s AND time < %s))
         ORDER BY date DESC, time DESC
     """, (user_id, today, today, now_time))
 
@@ -721,17 +758,17 @@ def admin_add_user():
         # ✅ Nuovo: newsletter facoltativa
         newsletter = 1 if request.form.get('newsletter') == 'on' else 0
 
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
 
         # Verifica duplicati
-        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
         if cursor.fetchone():
             conn.close()
             return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
                                    error="Username già esistente")
 
-        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cursor.fetchone():
             conn.close()
             return render_template('admin_edit_user.html', user=(name, surname, phone, email, username, password, newsletter),
@@ -740,7 +777,7 @@ def admin_add_user():
         # Inserimento
         cursor.execute("""
             INSERT INTO users (username, password, name, surname, phone, email, newsletter_optin)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (username, password, name, surname, phone, email, newsletter))
 
         conn.commit()
@@ -758,25 +795,25 @@ def admin_dashboard():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
     conn.commit()
     cursor.execute("""
-        SELECT appointments.id, users.username, users.name, users.surname, users.phone,
-               appointments.service, appointments.date, appointments.time, appointments.barber
-        FROM appointments 
-        JOIN users ON appointments.user_id = users.id
-        WHERE appointments.date >= ?
-        ORDER BY DATE(appointments.date), TIME(appointments.time)
-    """, (today,))
+    SELECT appointments.id, users.username, users.name, users.surname, users.phone,
+           appointments.service, appointments.date, appointments.time, appointments.barber
+    FROM appointments 
+    JOIN users ON appointments.user_id = users.id
+    WHERE appointments.date >= %s
+    ORDER BY appointments.date::date, appointments.time::time
+""", (today,))
+
     appointments = cursor.fetchall()
     conn.close()
     return render_template('admin_dashboard.html', appointments=appointments)
 
 from flask import request, session, redirect, url_for, render_template 
 from datetime import datetime, timedelta
-import sqlite3
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -811,12 +848,12 @@ def book():
         except:
             return render_template('book.html', error="Data o orario non validi.")
 
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
 
         cursor.execute("""
             SELECT barber FROM appointments
-            WHERE date = ? AND time = ?
+            WHERE date = %s AND time = %s
         """, (date, time))
         booked_barbers = [row[0] for row in cursor.fetchall()]
 
@@ -832,14 +869,14 @@ def book():
 
         cursor.execute("""
             INSERT INTO appointments (user_id, service, date, time, barber)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """, (user_id, service, date, time, assigned_barber))
 
         conn.commit()
 
         # 📧 Invia email
         try:
-            cursor.execute("SELECT name, email, phone FROM users WHERE id = ?", (user_id,))
+            cursor.execute("SELECT name, email, phone FROM users WHERE id = %s", (user_id,))
             user_info = cursor.fetchone()
             if user_info and user_info[1]:
                 invia_email_appuntamento(
@@ -932,14 +969,14 @@ def edit_appointment(appointment_id):
     if 'user_id' not in session and 'admin' not in session:
         return redirect(url_for('login_user'))
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     # 🔍 Carica appuntamento (incluso 'tipo')
     if 'admin' in session:
-        cursor.execute("SELECT id, service, date, time, barber, tipo FROM appointments WHERE id = ?", (appointment_id,))
+        cursor.execute("SELECT id, service, date, time, barber, tipo FROM appointments WHERE id = %s", (appointment_id,))
     else:
-        cursor.execute("SELECT id, service, date, time, barber, tipo FROM appointments WHERE id = ? AND user_id = ?",
+        cursor.execute("SELECT id, service, date, time, barber, tipo FROM appointments WHERE id = %s AND user_id = %s",
                        (appointment_id, session['user_id']))
 
     appointment = cursor.fetchone()
@@ -964,7 +1001,7 @@ def edit_appointment(appointment_id):
         new_time = request.form['time']
 
         # ⛔️ Controllo se lo slot è pieno
-        cursor.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND time = ? AND id != ?",
+        cursor.execute("SELECT COUNT(*) FROM appointments WHERE date = %s AND time = %s AND id != %s",
                        (new_date, new_time, appointment_id))
         if cursor.fetchone()[0] >= 2:
             conn.close()
@@ -977,14 +1014,14 @@ def edit_appointment(appointment_id):
             new_barber = request.form['barber']
             cursor.execute("""
                 UPDATE appointments 
-                SET service = ?, date = ?, time = ?, barber = ? 
-                WHERE id = ?
+                SET service = %s, date = %s, time = %s, barber = %s 
+                WHERE id = %s
             """, (new_service, new_date, new_time, new_barber, appointment_id))
         else:
             cursor.execute("""
                 UPDATE appointments 
-                SET service = ?, date = ?, time = ? 
-                WHERE id = ?
+                SET service = %s, date = %s, time = %s 
+                WHERE id = %s
             """, (new_service, new_date, new_time, appointment_id))
 
         conn.commit()
@@ -1000,10 +1037,10 @@ def edit_appointment(appointment_id):
 
 @app.route('/delete_appointment/<int:appointment_id>', methods=['POST'])
 def delete_appointment(appointment_id):
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT user_id, date, time FROM appointments WHERE id = ?", (appointment_id,))
+    cursor.execute("SELECT user_id, date, time FROM appointments WHERE id = %s", (appointment_id,))
     result = cursor.fetchone()
 
     if not result:
@@ -1016,7 +1053,7 @@ def delete_appointment(appointment_id):
 
     # SE ADMIN: bypassa tutti i controlli
     if 'admin' in session:
-        cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+        cursor.execute("DELETE FROM appointments WHERE id = %s", (appointment_id,))
         conn.commit()
         conn.close()
         return '', 204
@@ -1033,7 +1070,7 @@ def delete_appointment(appointment_id):
             conn.close()
             return jsonify({'error': 'Meno di un\'ora all\'appuntamento'}), 403
 
-        cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+        cursor.execute("DELETE FROM appointments WHERE id = %s", (appointment_id,))
         conn.commit()
         conn.close()
         return '', 204
@@ -1045,7 +1082,7 @@ def delete_appointment(appointment_id):
 def delete_all_appointments():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM appointments")
     conn.commit()
@@ -1075,12 +1112,12 @@ def get_booked_times():
         all_slots = [t for t in all_slots if t <= '15:30']
 
     # Prendo tutte le prenotazioni di quel giorno e quel tipo
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         SELECT time, service
         FROM appointments
-        WHERE date = ? AND tipo = ?
+        WHERE date = %s AND tipo = %s
     """, (date, tipo))
     recs = cursor.fetchall()
     conn.close()
@@ -1129,13 +1166,13 @@ def admin_get_day_slots():
     if weekday == 0 or weekday == 6:
         return jsonify({'slots': {}})  # Nessuno slot disponibile
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
     SELECT users.name, users.phone, appointments.service, appointments.time, appointments.id, appointments.barber
     FROM appointments
     JOIN users ON users.id = appointments.user_id
-    WHERE appointments.date = ? AND appointments.tipo = 'barbiere'
+    WHERE appointments.date = %s AND appointments.tipo = 'barbiere'
     """, (date,))
 
     records = cursor.fetchall()
@@ -1195,13 +1232,13 @@ def admin_get_day_slots_hair():
     slots = {t: [] for t in times}
 
     # Prendi tutte le prenotazioni 'parrucchiera' per quella data
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         SELECT u.name, u.phone, a.service, a.time, a.id, a.barber
         FROM appointments a
         JOIN users u ON u.id = a.user_id
-        WHERE a.date = ? AND a.tipo = 'parrucchiera'
+        WHERE a.date = %s AND a.tipo = 'parrucchiera'
     """, (date,))
     records = cursor.fetchall()
     conn.close()
@@ -1245,11 +1282,11 @@ def admin_book_hair():
             # Taglio + Piega dura 60
             duration_min = 60
 
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
 
         # Cerca o crea utente
-        cursor.execute("SELECT id FROM users WHERE phone = ?", (phone,))
+        cursor.execute("SELECT id FROM users WHERE phone = %s", (phone,))
         u = cursor.fetchone()
         if u:
             user_id = u[0]
@@ -1257,14 +1294,14 @@ def admin_book_hair():
             # genera username univoco
             base = f"{name.lower()}.{surname.lower()}"[:20]
             uname = base; suffix = 1
-            cursor.execute("SELECT 1 FROM users WHERE username = ?", (uname,))
+            cursor.execute("SELECT 1 FROM users WHERE username = %s", (uname,))
             while cursor.fetchone():
                 uname = f"{base}{suffix}"
                 suffix += 1
-                cursor.execute("SELECT 1 FROM users WHERE username = ?", (uname,))
+                cursor.execute("SELECT 1 FROM users WHERE username = %s", (uname,))
             cursor.execute("""
                 INSERT INTO users (username, password, name, surname, phone)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
             """, (uname, 'admin-creato', name, surname, phone or 'ND'))
             user_id = cursor.lastrowid
 
@@ -1276,8 +1313,8 @@ def admin_book_hair():
         cursor.execute("""
             SELECT service, time
             FROM appointments
-            WHERE date = ?
-              AND barber = ?
+            WHERE date = %s
+              AND barber = %s
               AND tipo = 'parrucchiera'
         """, (date, barber))
         for svc, t0 in cursor.fetchall():
@@ -1293,7 +1330,7 @@ def admin_book_hair():
         # Se è tutto libero, inserisci
         cursor.execute("""
             INSERT INTO appointments (user_id, service, date, time, barber, tipo)
-            VALUES (?, ?, ?, ?, ?, 'parrucchiera')
+            VALUES (%s, %s, %s, %s, %s, 'parrucchiera')
         """, (user_id, service, date, time, barber))
 
         conn.commit()
@@ -1312,7 +1349,7 @@ def account():
         return redirect(url_for('login_user'))
 
     user_id = session['user_id']
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     if request.method == 'POST':
@@ -1327,7 +1364,7 @@ def account():
         newsletter = 1 if request.form.get('newsletter') == 'on' else 0
 
         # ❌ Username duplicato?
-        cursor.execute("SELECT id FROM users WHERE username = ? AND id != ?", (username, user_id))
+        cursor.execute("SELECT id FROM users WHERE username = %s AND id != %s", (username, user_id))
         if cursor.fetchone():
             conn.close()
             return render_template('account.html', error="Username già in uso.", user=None)
@@ -1335,8 +1372,8 @@ def account():
         # ✅ Aggiorna i dati
         cursor.execute("""
             UPDATE users 
-            SET name = ?, surname = ?, phone = ?, email = ?, username = ?, password = ?, newsletter_optin = ?
-            WHERE id = ?
+            SET name = %s, surname = %s, phone = %s, email = %s, username = %s, password = %s, newsletter_optin = %s
+            WHERE id = %s
         """, (name, surname, phone, email, username, password, newsletter, user_id))
         
         conn.commit()
@@ -1348,7 +1385,7 @@ def account():
         return redirect(url_for('user_dashboard'))
 
     # GET – Carica i dati utente (incluso newsletter_optin)
-    cursor.execute("SELECT name, surname, phone, email, username, password, newsletter_optin FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT name, surname, phone, email, username, password, newsletter_optin FROM users WHERE id = %s", (user_id,))
     user = cursor.fetchone()
     conn.close()
 
@@ -1402,7 +1439,7 @@ def admin_history():
 
     query += " ORDER BY DATE(appointments.date) DESC, TIME(appointments.time) DESC"
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(query, params)
     appointments = cursor.fetchall()
@@ -1415,7 +1452,7 @@ def admin_stats():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
 
     # Appuntamenti per giorno
@@ -1484,7 +1521,7 @@ def export_history_csv():
     query += " ORDER BY DATE(appointments.date) DESC, TIME(appointments.time) DESC"
 
     # Esegui query
-    conn = sqlite3.connect('bookings.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(query, params)
     rows = cursor.fetchall()
@@ -1524,13 +1561,13 @@ def book_hair():
         time = request.form['time']
         barber = request.form['barber']  # Es. "Daniela"
 
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
 
         # Controlla se lo slot è già prenotato dalla parrucchiera
         cursor.execute("""
             SELECT COUNT(*) FROM appointments
-            WHERE date = ? AND time = ? AND barber = ? AND tipo = 'parrucchiera'
+            WHERE date = %s AND time = %s AND barber = %s AND tipo = 'parrucchiera'
         """, (date, time, barber))
         if cursor.fetchone()[0] >= 1:
             conn.close()
@@ -1539,13 +1576,13 @@ def book_hair():
         # Salva l'appuntamento
         cursor.execute("""
             INSERT INTO appointments (user_id, service, date, time, barber, tipo)
-            VALUES (?, ?, ?, ?, ?, 'parrucchiera')
+            VALUES (%s, %s, %s, %s, %s, 'parrucchiera')
         """, (user_id, service, date, time, barber))
         conn.commit()
 
         # 📧 Invio email di conferma
         try:
-            cursor.execute("SELECT name, email, phone FROM users WHERE id = ?", (user_id,))
+            cursor.execute("SELECT name, email, phone FROM users WHERE id = %s", (user_id,))
             user_info = cursor.fetchone()
             if user_info and user_info[1]:
                 invia_email_appuntamento(
@@ -1592,12 +1629,12 @@ def admin_book():
         end_dt   = start_dt + timedelta(minutes=duration_min)
 
         #--- Controllo sovrapposizioni per questa parrucchiera ---
-        conn = sqlite3.connect('bookings.db')
+        conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
             SELECT service, date, time
             FROM appointments
-            WHERE barber = ? AND date = ?
+            WHERE barber = %s AND date = %s
         """, (barber, date))
         existing = cursor.fetchall()
 
@@ -1618,7 +1655,7 @@ def admin_book():
                                        error=error)
 
         # un massimo di 2 prenotazioni per slot già c’era
-        cursor.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND time = ?", (date, time))
+        cursor.execute("SELECT COUNT(*) FROM appointments WHERE date = %s AND time = %s", (date, time))
         if cursor.fetchone()[0] >= 2:
             conn.close()
             return render_template('admin_book_hair.html',
@@ -1628,7 +1665,7 @@ def admin_book():
         # OK, inserisco
         cursor.execute("""
             INSERT INTO appointments (user_id, service, date, time, barber, tipo)
-            VALUES (?, ?, ?, ?, ?, 'parrucchiera')
+            VALUES (%s, %s, %s, %s, %s, 'parrucchiera')
         """, (user_id, service, date, time, barber))
         conn.commit()
         conn.close()

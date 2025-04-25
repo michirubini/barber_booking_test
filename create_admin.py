@@ -1,33 +1,32 @@
-import sqlite3
 import bcrypt
+import psycopg2
 
-# Inserimento dati
-username = input("👤 Inserisci username admin: ")
-password = input("🔐 Inserisci password: ")
+def get_connection():
+    return psycopg2.connect(
+        dbname="barber_booking",
+        user="postgres",
+        password="admin",
+        host="localhost",
+        port="5432"
+    )
 
-# Hash password
-hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+def create_admin():
+    username = input("👤 Inserisci username admin: ").strip()
+    password = input("🔐 Inserisci password: ").strip()
 
-# Connessione DB
-conn = sqlite3.connect('bookings.db')
-cursor = conn.cursor()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-# Crea tabella se non esiste (sicurezza)
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS admins (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL
-)
-""")
+    conn = get_connection()
+    cursor = conn.cursor()
 
-# Controlla se admin già esiste
-cursor.execute("SELECT * FROM admins WHERE username = ?", (username,))
-if cursor.fetchone():
-    print(f"⚠️ L'admin '{username}' esiste già.")
-else:
-    cursor.execute("INSERT INTO admins (username, password) VALUES (?, ?)", (username, hashed_password))
-    conn.commit()
-    print(f"✅ Admin '{username}' creato con successo!")
+    try:
+        cursor.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", (username, hashed))
+        conn.commit()
+        print("✅ Admin creato con successo!")
+    except Exception as e:
+        print("❌ Errore durante la creazione dell'admin:", e)
 
-conn.close()
+    conn.close()
+
+if __name__ == '__main__':
+    create_admin()

@@ -2,3 +2,5 @@ Flask
 gunicorn
 bcrypt
 flask_mail
+psycopg2-binary
+python-dotenv
