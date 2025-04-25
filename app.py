@@ -1358,39 +1358,46 @@ def account():
         phone = request.form['phone']
         email = request.form['email']
         username = request.form['username']
-        password = request.form['password']
-
-        # ✅ Newsletter opzionale
+        new_password = request.form['password']
         newsletter = 1 if request.form.get('newsletter') == 'on' else 0
 
-        # ❌ Username duplicato?
+        # ❌ Controlla username duplicato
         cursor.execute("SELECT id FROM users WHERE username = %s AND id != %s", (username, user_id))
         if cursor.fetchone():
             conn.close()
             return render_template('account.html', error="Username già in uso.", user=None)
 
-        # ✅ Aggiorna i dati
-        cursor.execute("""
-            UPDATE users 
-            SET name = %s, surname = %s, phone = %s, email = %s, username = %s, password = %s, newsletter_optin = %s
-            WHERE id = %s
-        """, (name, surname, phone, email, username, password, newsletter, user_id))
-        
+        # 🔐 Se la password è stata modificata, verifica e aggiorna
+        if new_password:
+            if not is_password_strong(new_password):
+                conn.close()
+                return render_template('account.html', error="La password deve contenere almeno 8 caratteri, una lettera, un numero e un simbolo.", user=None)
+
+            hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            cursor.execute("""
+                UPDATE users 
+                SET name = %s, surname = %s, phone = %s, email = %s, username = %s, password = %s, newsletter_optin = %s
+                WHERE id = %s
+            """, (name, surname, phone, email, username, hashed, newsletter, user_id))
+        else:
+            # Nessun cambio password
+            cursor.execute("""
+                UPDATE users 
+                SET name = %s, surname = %s, phone = %s, email = %s, username = %s, newsletter_optin = %s
+                WHERE id = %s
+            """, (name, surname, phone, email, username, newsletter, user_id))
+
         conn.commit()
         conn.close()
-
-        # 🔁 Aggiorna anche la sessione
         session['username'] = username
-
         return redirect(url_for('user_dashboard'))
 
-    # GET – Carica i dati utente (incluso newsletter_optin)
-    cursor.execute("SELECT name, surname, phone, email, username, password, newsletter_optin FROM users WHERE id = %s", (user_id,))
+    # GET: carica i dati utente senza mostrare la password
+    cursor.execute("SELECT name, surname, phone, email, username, newsletter_optin FROM users WHERE id = %s", (user_id,))
     user = cursor.fetchone()
     conn.close()
 
     return render_template('account.html', user=user)
-
 
 
 @app.route('/admin_history', methods=['GET', 'POST'])
