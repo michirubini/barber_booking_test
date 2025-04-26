@@ -14,7 +14,7 @@
       <p style="color: red;">{{ error }}</p>
     {% endif %}
 
-    <form method="POST" action="{{ url_for('admin_book_hair') }}">
+    <form method="POST">
       <label for="name">Nome:</label>
       <input type="text" name="name" required>
 
@@ -27,8 +27,15 @@
       <label for="service">Servizio:</label>
       <select name="service" required>
         <option value="">-- Seleziona un servizio --</option>
-        <option value="Taglio + Piega">Taglio + Piega</option>
+        <option value="Piega">Piega</option>
+        <option value="Taglio Donna">Taglio Donna</option>
+        <option value="Colore">Colore</option>
         <option value="Taglio + Colore + Piega">Taglio + Colore + Piega</option>
+      </select>
+
+      <label for="barber">Parrucchiera:</label>
+      <select name="barber" required>
+        <option value="Daniela">Daniela</option>
       </select>
 
       <label for="date">Data:</label>
@@ -37,14 +44,11 @@
       <label for="time">Orario:</label>
       <input type="text" name="time" value="{{ time }}" readonly>
 
-      <!-- Parrucchiera fissa -->
-      <input type="hidden" name="barber" value="Daniela">
-
-      <button type="submit" class="big-btn">Salva Appuntamento</button>
+      <button type="submit">Salva Appuntamento</button>
     </form>
 
     <br>
-    <a href="{{ url_for('admin_hourly_calendar') }}">← Torna alla Vista Parrucchiera</a>
+    <a href="{{ url_for('admin_hourly_calendar') }}">← Torna al Calendario Donna</a>
   </div>
 </body>
 </html>

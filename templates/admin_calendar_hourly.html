@@ -73,8 +73,6 @@
   <script>
     let currentDate = new Date();
 
-    // Genera slot ogni mezz'ora:
-    //  Mart–Ven fino alle 19:00, Sabato fino alle 15:30
     function generateTimes(dayOfWeek) {
       const slots = [];
       const lastHour = (dayOfWeek === 6) ? 15 : 19;
@@ -124,7 +122,6 @@
         }
         cal.appendChild(cell);
       }
-      // auto-click oggi
       if (year===today.getFullYear() && month===today.getMonth()) {
         document.querySelectorAll('.calendar-day.today').forEach(x=>x.click());
       }
@@ -147,15 +144,12 @@
         const raw = data.slots;
         const blocked = new Set();
 
-        // blocco in avanti e all’indietro per evitare sovrapposizioni
         times.forEach((t,i)=>{
           (raw[t]||[]).forEach(app=>{
             const dur = app.servizio==='Taglio + Colore + Piega' ? 3 : 2;
-            // forward
             for (let k=0; k<dur; k++){
               if (times[i+k]) blocked.add(times[i+k]);
             }
-            // backward
             for (let k=0; k<dur; k++){
               if (times[i-k]) blocked.add(times[i-k]);
             }
@@ -173,8 +167,8 @@
               const e = document.createElement('div'); e.classList.add('slot-entry','booked');
               e.innerHTML = `
                 ${p.name} (${p.phone})<br>
-                💈 <strong>${p.barber}</strong> – ${p.servizio}<br>
-                <a href="/edit_appointment/${p.id}">✏️</a>
+                💇‍♀️ <strong>${p.barber}</strong> – ${p.servizio}<br>
+                <a href="/edit_appointment_hair/${p.id}">✏️</a>
                 <button class="admin-delete-appointment" data-id="${p.id}">🗑️</button>
               `;
               wrap.appendChild(e);
@@ -207,9 +201,7 @@
         const id = e.target.dataset.id;
         if (confirm('Eliminare questo appuntamento?')) {
           fetch(`/admin_delete_appointment/${id}`, { method:'POST' })
-            .then(r=> r.ok
-              ? location.reload()
-              : alert('Errore durante l\'eliminazione.'));
+            .then(r=> r.ok ? location.reload() : alert('Errore durante l\'eliminazione.'));
         }
       }
     });

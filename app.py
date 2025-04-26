@@ -1629,58 +1629,62 @@ def admin_book():
         time    = request.form['time']
         barber  = request.form['barber']
 
-        # calcolo durata del servizio
-        duration_min = 90 if service == 'Taglio + Colore + Piega' else 60
-        fmt = "%Y-%m-%d %H:%M"
-        start_dt = datetime.strptime(f"{date} {time}", fmt)
-        end_dt   = start_dt + timedelta(minutes=duration_min)
-
-        #--- Controllo sovrapposizioni per questa parrucchiera ---
         conn = get_connection()
         cursor = conn.cursor()
+
+        # 🔍 Cerca se esiste già l'utente con quel telefono
+        cursor.execute("SELECT id FROM users WHERE phone = %s", (phone,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            user_id = existing_user[0]
+        else:
+            # ➡️ Se non esiste, crea un nuovo utente (admin-creato)
+            base = f"{name.lower()}.{surname.lower()}"[:20]
+            uname = base
+            suffix = 1
+
+            cursor.execute("SELECT 1 FROM users WHERE username = %s", (uname,))
+            while cursor.fetchone():
+                uname = f"{base}{suffix}"
+                suffix += 1
+                cursor.execute("SELECT 1 FROM users WHERE username = %s", (uname,))
+
+            cursor.execute("""
+                INSERT INTO users (username, password, name, surname, phone)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (uname, 'admin-creato', name, surname, phone or 'ND'))
+
+            conn.commit()
+
+            cursor.execute("SELECT id FROM users WHERE username = %s", (uname,))
+            user_id = cursor.fetchone()[0]
+
+        # 📅 Ora abbiamo sicuramente un user_id valido
+
+        # Controllo se slot è già pieno
         cursor.execute("""
-            SELECT service, date, time
-            FROM appointments
-            WHERE barber = %s AND date = %s
-        """, (barber, date))
-        existing = cursor.fetchall()
-
-        for svc, d, t in existing:
-            # calcolo durata esistente
-            dur_ex = 90 if svc == 'Taglio + Colore + Piega' else 60
-            app_start = datetime.strptime(f"{d} {t}", fmt)
-            app_end   = app_start + timedelta(minutes=dur_ex)
-
-            # se overlap
-            if not (end_dt <= app_start or start_dt >= app_end):
-                conn.close()
-                error = ("Non c'è abbastanza tempo libero: "
-                         f"l'appuntamento esistente dalle {t} "
-                         f"durante {dur_ex//60}h{dur_ex%60*30}m")
-                return render_template('admin_book_hair.html',
-                                       date=date, time=time,
-                                       error=error)
-
-        # un massimo di 2 prenotazioni per slot già c’era
-        cursor.execute("SELECT COUNT(*) FROM appointments WHERE date = %s AND time = %s", (date, time))
+            SELECT COUNT(*) FROM appointments
+            WHERE date = %s AND time = %s
+        """, (date, time))
         if cursor.fetchone()[0] >= 2:
             conn.close()
-            return render_template('admin_book_hair.html',
-                                   date=date, time=time,
-                                   error="Slot già pieno")
-        
-        # OK, inserisco
+            return render_template('admin_book.html', date=date, time=time, error="Slot già pieno.")
+
+        # Inserisci appuntamento con tipo barbiere
         cursor.execute("""
             INSERT INTO appointments (user_id, service, date, time, barber, tipo)
-            VALUES (%s, %s, %s, %s, %s, 'parrucchiera')
+            VALUES (%s, %s, %s, %s, %s, 'barbiere')
         """, (user_id, service, date, time, barber))
+
         conn.commit()
         conn.close()
-
         return redirect(url_for('admin_dashboard'))
 
-    # GET – form vuoto
-    return render_template('admin_book_hair.html', date=date, time=time)
+    # GET: Form iniziale
+    return render_template('admin_book.html', date=date, time=time)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
