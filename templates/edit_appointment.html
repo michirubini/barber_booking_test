@@ -28,8 +28,8 @@
       {% if 'admin' in session %}
       <label for="barber">Barbiere:</label>
       <select name="barber" required>
-        <option value="Mattia" {% if appointment[4] == 'Mattia' %} selected {% endif %}>Mattia</option>
-        <option value="Achille" {% if appointment[4] == 'Achille' %} selected {% endif %}>Achille</option>
+      <option value="Mattia" {% if appointment[4] == 'Mattia' %} selected {% endif %}>Mattia</option>
+      <option value="Achille" {% if appointment[4] == 'Achille' %} selected {% endif %}>Achille</option>
       </select>
       {% endif %}
 
@@ -83,12 +83,10 @@
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const currentMonth = new Date(year, month);
-      monthYearLabel.textContent = currentMonth.toLocaleString('it-IT', { month: 'long', year: 'numeric' });
+      monthYearLabel.textContent = new Date(year, month).toLocaleString('it-IT', { month: 'long', year: 'numeric' });
 
       for (let i = 0; i < firstDay; i++) {
-        const empty = document.createElement('div');
-        calendar.appendChild(empty);
+        calendar.appendChild(document.createElement('div'));
       }
 
       for (let d = 1; d <= daysInMonth; d++) {
@@ -103,17 +101,15 @@
 
         if (date < today || weekday === 0 || weekday === 1) {
           div.classList.add('disabled');
-          div.dataset.disabled = "true";
+          div.dataset.disabled = 'true';
         } else {
-          div.dataset.disabled = "false";
+          div.dataset.disabled = 'false';
         }
 
-        if (dateStr === selectedDateValue) {
-          div.classList.add('selected');
-        }
+        if (dateStr === selectedDateValue) div.classList.add('selected');
 
         div.addEventListener('click', () => {
-          if (div.dataset.disabled === "true") return;
+          if (div.dataset.disabled === 'true') return;
           document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected'));
           div.classList.add('selected');
           dateInput.value = dateStr;
@@ -132,15 +128,11 @@
       fetch('{{ url_for("get_booked_times") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          date: dateStr, 
-          tipo: 'barbiere' // 💥 questa è la correzione fondamentale!
-        })
+        body: JSON.stringify({ date: dateStr, tipo: 'barbiere' })
       })
       .then(res => res.json())
       .then(data => {
-        const booked = data.booked_times;
-
+        const booked = data.booked_times || [];
         times.forEach(t => {
           const isAfter15 = isSaturday && t > '15:30';
           const isDisabled = booked.includes(t) || isAfter15;
@@ -156,10 +148,7 @@
               div.classList.add('selected');
               timeInput.value = t;
             });
-
-            if (t === timeInput.value) {
-              div.classList.add('selected');
-            }
+            if (t === timeInput.value) div.classList.add('selected');
           }
 
           timesContainer.appendChild(div);
@@ -178,10 +167,7 @@
     });
 
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
-
-    if (selectedDateValue) {
-      loadTimes(new Date(selectedDateValue));
-    }
+    if (selectedDateValue) loadTimes(new Date(selectedDateValue));
   </script>
 </body>
 </html>
