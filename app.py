@@ -1262,7 +1262,6 @@ def admin_book_hair():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    # data e orario passati da GET
     date = request.args.get('date')
     time = request.args.get('time')
 
@@ -1276,11 +1275,7 @@ def admin_book_hair():
         barber  = request.form['barber']  # "Daniela"
 
         # Calcola durata in minuti
-        if service == 'Taglio + Colore + Piega':
-            duration_min = 90
-        else:
-            # Taglio + Piega dura 60
-            duration_min = 60
+        duration_min = 90 if service == 'Taglio + Colore + Piega' else 60
 
         conn = get_connection()
         cursor = conn.cursor()
@@ -1293,17 +1288,21 @@ def admin_book_hair():
         else:
             # genera username univoco
             base = f"{name.lower()}.{surname.lower()}"[:20]
-            uname = base; suffix = 1
+            uname = base
+            suffix = 1
             cursor.execute("SELECT 1 FROM users WHERE username = %s", (uname,))
             while cursor.fetchone():
                 uname = f"{base}{suffix}"
                 suffix += 1
                 cursor.execute("SELECT 1 FROM users WHERE username = %s", (uname,))
+            
+            # QUI usiamo RETURNING id
             cursor.execute("""
                 INSERT INTO users (username, password, name, surname, phone)
                 VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
             """, (uname, 'admin-creato', name, surname, phone or 'ND'))
-            user_id = cursor.lastrowid
+            user_id = cursor.fetchone()[0]
 
         # Controllo sovrapposizioni
         fmt = "%Y-%m-%d %H:%M"
@@ -1313,21 +1312,18 @@ def admin_book_hair():
         cursor.execute("""
             SELECT service, time
             FROM appointments
-            WHERE date = %s
-              AND barber = %s
-              AND tipo = 'parrucchiera'
-        """, (date, barber))
+            WHERE date = %s AND tipo = 'parrucchiera'
+        """, (date,))
         for svc, t0 in cursor.fetchall():
-            d0 = 90 if svc=='Taglio + Colore + Piega' else 60
+            d0 = 90 if svc == 'Taglio + Colore + Piega' else 60
             s0 = datetime.strptime(f"{date} {t0}", fmt)
             e0 = s0 + timedelta(minutes=d0)
-            # se i due intervalli si intersecano
             if not (end_dt <= s0 or start_dt >= e0):
                 conn.close()
                 err = f"Intervallo {time}–{(start_dt+timedelta(minutes=duration_min)).strftime('%H:%M')} in conflitto con un altro appuntamento."
                 return render_template('admin_book_hair.html', date=date, time=time, error=err)
 
-        # Se è tutto libero, inserisci
+        # Se è tutto libero, inserisci appuntamento
         cursor.execute("""
             INSERT INTO appointments (user_id, service, date, time, barber, tipo)
             VALUES (%s, %s, %s, %s, %s, 'parrucchiera')
@@ -1339,7 +1335,6 @@ def admin_book_hair():
 
     # GET: mostra form
     return render_template('admin_book_hair.html', date=date, time=time)
-
 
 
 
