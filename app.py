@@ -1091,15 +1091,14 @@ def delete_all_appointments():
 
 @app.route('/get_booked_times', methods=['POST'])
 def get_booked_times():
+    from collections import defaultdict
     data = request.get_json()
     date = data.get('date')
-    tipo = data.get('tipo', 'parrucchiera')  # "barbiere" o "parrucchiera"
-
-    from datetime import datetime, timedelta
+    tipo = data.get('tipo', 'parrucchiera')
     now = datetime.now()
     is_today = (date == now.strftime("%Y-%m-%d"))
+    weekday = datetime.strptime(date, "%Y-%m-%d").weekday()
 
-    # Definisco tutti gli slot da 09:00 a 19:00 ogni 30 minuti
     all_slots = [
         '09:00','09:30','10:00','10:30','11:00','11:30',
         '12:00','12:30','13:00','13:30','14:00','14:30',
@@ -1107,45 +1106,43 @@ def get_booked_times():
         '18:00','18:30','19:00'
     ]
 
-    # Sabato: limito fino alle 15:30
-    weekday = datetime.strptime(date, "%Y-%m-%d").weekday()
     if weekday == 5:  # sabato
         all_slots = [t for t in all_slots if t <= '15:30']
 
-    # Prendo tutte le prenotazioni di quel giorno e di quel tipo
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT time, service
-        FROM appointments
+        SELECT time, user_id FROM appointments
         WHERE date = %s AND tipo = %s
     """, (date, tipo))
-    recs = cursor.fetchall()
+    results = cursor.fetchall()
     conn.close()
 
-    booked_slots = set()
+    slot_counts = defaultdict(lambda: {'clienti': 0, 'totali': 0})
 
-    for start_time, service in recs:
-        if start_time in all_slots:
-            idx = all_slots.index(start_time)
+    for time, user_id in results:
+        if time in all_slots:
+            slot_counts[time]['totali'] += 1
+            if user_id and user_id > 0:
+                slot_counts[time]['clienti'] += 1
 
-            if tipo == 'parrucchiera':
-                # Servizi parrucchiera: 1h (2 slot) o 1h30 (3 slot)
-                if service == 'Taglio + Piega':
-                    slots_needed = 2
-                elif service == 'Taglio + Colore + Piega':
-                    slots_needed = 3
-                else:
-                    slots_needed = 2  # Default
-                for k in range(slots_needed):
-                    if idx + k < len(all_slots):
-                        booked_slots.add(all_slots[idx + k])
+    # Orari speciali dove il cliente può prenotare entrambi gli slot
+    special_slots = []
+    if weekday in [1, 2, 3, 4]:  # martedì-venerdì
+        special_slots = ['09:00', '18:30']
+    elif weekday == 5:  # sabato
+        special_slots = ['09:00', '15:00']
 
-            elif tipo == 'barbiere':
-                # Servizi barbiere: 30 minuti (1 slot)
-                booked_slots.add(start_time)
+    booked_times = []
+    for t in all_slots:
+        clienti = slot_counts[t]['clienti']
+        if t in special_slots:
+            if clienti >= 2:
+                booked_times.append(t)
+        else:
+            if clienti >= 1:
+                booked_times.append(t)
 
-    # Blocco anche gli slot troppo vicini (<1h da ora) se è oggi
     too_close = []
     if is_today:
         for t in all_slots:
@@ -1154,9 +1151,10 @@ def get_booked_times():
                 too_close.append(t)
 
     return jsonify({
-        'booked_times': sorted(booked_slots),
+        'booked_times': sorted(booked_times),
         'not_available_today': too_close
     })
+
 
 
 
