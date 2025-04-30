@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registrazione Utente</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .checkbox-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -45,12 +54,21 @@
       </div>
 
       <!-- ✅ Requisiti password -->
-      <ul id="password-rules" style="font-size: 0.9em; margin-top: 5px; margin-bottom: 10px; color: #555;">
-        <li id="len" style="color: red;">Minimo 8 caratteri</li>
-        <li id="letter" style="color: red;">Almeno 1 lettera</li>
-        <li id="number" style="color: red;">Almeno 1 numero</li>
-        <li id="symbol" style="color: red;">Almeno 1 simbolo (!@#&...)</li>
+      <ul id="password-rules" style="list-style: none; padding-left: 0; margin: 8px 0 16px 0;">
+        <li id="len" style="display: flex; align-items: center; gap: 6px; color: #777;">
+          <span>❌</span> Minimo 8 caratteri
+        </li>
+        <li id="letter" style="display: flex; align-items: center; gap: 6px; color: #777;">
+          <span>❌</span> Almeno 1 lettera
+        </li>
+        <li id="number" style="display: flex; align-items: center; gap: 6px; color: #777;">
+          <span>❌</span> Almeno 1 numero
+        </li>
+        <li id="symbol" style="display: flex; align-items: center; gap: 6px; color: #777;">
+          <span>❌</span> Almeno 1 simbolo (!@#&)
+        </li>
       </ul>
+      
 
       <label for="confirm_password">Conferma Password:</label>
       <input type="password" id="confirm_password" name="confirm_password" placeholder="Ripeti la password" required>
@@ -63,21 +81,15 @@
           I dati non saranno ceduti a terzi e verranno conservati secondo normativa. In qualsiasi momento puoi richiedere la modifica o la cancellazione dei tuoi dati contattandoci.<br><br>
           Per maggiori dettagli consulta l’informativa completa o contattaci.
         </div>
-        <label style="display: block; margin-top: 10px;">
-          <input type="checkbox" name="privacy" required>
-          Dichiaro di aver letto e accettato l’informativa sulla privacy *
-        </label>
       </div>
 
-      <!-- ✅ Newsletter -->
-      <div style="margin-top: 15px;">
-        <label>
-          <input type="checkbox" name="newsletter">
-          Acconsento a ricevere comunicazioni promozionali e offerte via email
-        </label>
+      <!-- ✅ Checkbox allineati -->
+      <div class="checkbox-container">
+        <label><input type="checkbox" name="privacy" required> Dichiaro di aver letto e accettato l’informativa sulla privacy *</label>
+        <label><input type="checkbox" name="newsletter"> Acconsento a ricevere comunicazioni promozionali e offerte via email</label>
       </div>
 
-      <button type="submit" class="big-btn" style="margin-top: 20px;">Registrati</button>
+      <button type="submit" class="big-btn" style="margin-top: 10px;">Registrati</button>
     </form>
 
     <a href="{{ url_for('index') }}" style="display: block; margin-top: 15px;">Torna alla Home</a>
@@ -91,15 +103,21 @@
     }
 
     const passwordField = document.getElementById('password');
-    passwordField.addEventListener('input', function () {
-      const val = passwordField.value;
+passwordField.addEventListener('input', function () {
+  const val = passwordField.value;
 
-      document.getElementById('len').style.color = val.length >= 8 ? 'green' : 'red';
-      document.getElementById('letter').style.color = /[a-zA-Z]/.test(val) ? 'green' : 'red';
-      document.getElementById('number').style.color = /\d/.test(val) ? 'green' : 'red';
-      document.getElementById('symbol').style.color = /[^a-zA-Z0-9]/.test(val) ? 'green' : 'red';
-    });
+  updateRule('len', val.length >= 8);
+  updateRule('letter', /[a-zA-Z]/.test(val));
+  updateRule('number', /\d/.test(val));
+  updateRule('symbol', /[^a-zA-Z0-9]/.test(val));
+});
+
+function updateRule(id, valid) {
+  const li = document.getElementById(id);
+  li.style.color = valid ? '#28a745' : '#777';
+  li.children[0].textContent = valid ? '✔️' : '❌';
+}
+
   </script>
 </body>
 </html>
-
