@@ -795,28 +795,47 @@ def admin_dashboard():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
+    # Numero di appuntamenti per pagina
+    per_page = 50
+    page = int(request.args.get('page', 1))
+    offset = (page - 1) * per_page
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
     conn = get_connection()
     cursor = conn.cursor()
-    today = datetime.now().strftime("%Y-%m-%d")
-    conn.commit()
+
+    # Conta totale appuntamenti futuri
     cursor.execute("""
-    SELECT appointments.id, users.username, users.name, users.surname, users.phone,
-           appointments.service, appointments.date, appointments.time, appointments.barber
-    FROM appointments 
-    JOIN users ON appointments.user_id = users.id
-    WHERE appointments.date >= %s
-    ORDER BY appointments.date::date, appointments.time::time
-""", (today,))
+        SELECT COUNT(*) 
+        FROM appointments 
+        WHERE date >= %s
+    """, (today,))
+    total_appointments = cursor.fetchone()[0]
 
+    # Prendi appuntamenti paginati
+    cursor.execute("""
+        SELECT appointments.id, users.username, users.name, users.surname, users.phone,
+               appointments.service, appointments.date, appointments.time, appointments.barber
+        FROM appointments 
+        JOIN users ON appointments.user_id = users.id
+        WHERE appointments.date >= %s
+        ORDER BY appointments.date::date, appointments.time::time
+        LIMIT %s OFFSET %s
+    """, (today, per_page, offset))
     appointments = cursor.fetchall()
-    conn.close()
-    return render_template('admin_dashboard.html', appointments=appointments)
 
-from flask import request, session, redirect, url_for, render_template 
-from datetime import datetime, timedelta
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+    conn.close()
+
+    total_pages = (total_appointments + per_page - 1) // per_page
+
+    return render_template(
+        'admin_dashboard.html',
+        appointments=appointments,
+        page=page,
+        total_pages=total_pages
+    )
+
 
 @app.route('/book', methods=['GET', 'POST'])
 def book():
