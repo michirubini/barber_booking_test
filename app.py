@@ -1465,25 +1465,21 @@ def admin_stats():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # 📅 Prendi solo gli appuntamenti del mese corrente per il grafico giornaliero
-    from datetime import datetime, timedelta
-    today = datetime.now()
-    first_day = today.replace(day=1).strftime("%Y-%m-%d")
-    next_month = (today.replace(day=28) + timedelta(days=4)).replace(day=1).strftime("%Y-%m-%d")
-
+    # === 1. Appuntamenti per giorno (ultimi 40 giorni)
     cursor.execute("""
-        SELECT date, COUNT(*) 
-        FROM appointments 
-        WHERE date >= %s AND date < %s
-        GROUP BY date 
-        ORDER BY date
-    """, (first_day, next_month))
+        SELECT date, COUNT(*)
+        FROM appointments
+        WHERE TO_DATE(date, 'YYYY-MM-DD') >= (CURRENT_DATE - INTERVAL '40 days')
+        GROUP BY date
+        ORDER BY TO_DATE(date, 'YYYY-MM-DD')
+    """)
     daily_data = cursor.fetchall()
 
-    # 📊 Appuntamenti totali per mese (yyyy-mm)
+    # === 2. Appuntamenti per mese (solo anno corrente)
     cursor.execute("""
-        SELECT SUBSTR(date, 1, 7) as month, COUNT(*)
+        SELECT SUBSTRING(date, 1, 7) as month, COUNT(*)
         FROM appointments
+        WHERE SUBSTRING(date, 1, 4) = TO_CHAR(CURRENT_DATE, 'YYYY')
         GROUP BY month
         ORDER BY month
     """)
@@ -1496,6 +1492,8 @@ def admin_stats():
         daily_data=daily_data,
         monthly_data=monthly_data
     )
+
+
 
 
 @app.route('/admin_history/export', methods=['POST'])
