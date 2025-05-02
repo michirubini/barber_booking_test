@@ -9,14 +9,24 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 
-# Rimuove gli utenti finti con username/email tipici
+# Elimina prima gli appuntamenti legati agli utenti fake
+cursor.execute("""
+    DELETE FROM appointments
+    WHERE user_id IN (
+        SELECT id FROM users WHERE username LIKE 'testuser%' OR email LIKE 'test%@example.com'
+    )
+""")
+deleted_appointments = cursor.rowcount
+
+# Ora elimina gli utenti fake
 cursor.execute("""
     DELETE FROM users
     WHERE username LIKE 'testuser%' OR email LIKE 'test%@example.com'
 """)
-deleted = cursor.rowcount
+deleted_users = cursor.rowcount
 
 conn.commit()
 conn.close()
 
-print(f"✅ Utenti fake eliminati: {deleted}")
+print(f"✅ Appuntamenti fake eliminati: {deleted_appointments}")
+print(f"✅ Utenti fake eliminati: {deleted_users}")
