@@ -1476,7 +1476,7 @@ def admin_history():
 
     return render_template('admin_history.html', appointments=appointments, filters=filters)
 
-@app.route('/admin_stats')
+@app.route('/admin_stats', methods=['GET', 'POST'])
 def admin_stats():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
@@ -1484,24 +1484,37 @@ def admin_stats():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # === 1. Appuntamenti per giorno (ultimi 40 giorni)
+    # === Ricava anni disponibili ===
+    cursor.execute("SELECT DISTINCT EXTRACT(YEAR FROM date::date)::int FROM appointments ORDER BY 1")
+    available_years = [int(r[0]) for r in cursor.fetchall()]
+
+    # === Imposta mese/anno corrente di default ===
+    today = datetime.today()
+    selected_month = today.month
+    selected_year = today.year
+
+    if request.method == 'POST':
+        selected_month = int(request.form.get('month', today.month))
+        selected_year = int(request.form.get('year', today.year))
+
+    # === Appuntamenti filtrati per giorno ===
     cursor.execute("""
-        SELECT date, COUNT(*)
-        FROM appointments
-        WHERE TO_DATE(date, 'YYYY-MM-DD') >= (CURRENT_DATE - INTERVAL '40 days')
-        GROUP BY date
-        ORDER BY TO_DATE(date, 'YYYY-MM-DD')
-    """)
+        SELECT date::date, COUNT(*) 
+        FROM appointments 
+        WHERE EXTRACT(MONTH FROM date::date) = %s AND EXTRACT(YEAR FROM date::date) = %s
+        GROUP BY date::date 
+        ORDER BY date::date
+    """, (selected_month, selected_year))
     daily_data = cursor.fetchall()
 
-    # === 2. Appuntamenti per mese (solo anno corrente)
+    # === Appuntamenti per mese dell'anno corrente ===
     cursor.execute("""
-        SELECT SUBSTRING(date, 1, 7) as month, COUNT(*)
-        FROM appointments
-        WHERE SUBSTRING(date, 1, 4) = TO_CHAR(CURRENT_DATE, 'YYYY')
-        GROUP BY month
+        SELECT TO_CHAR(date::date, 'YYYY-MM') as month, COUNT(*) 
+        FROM appointments 
+        WHERE EXTRACT(YEAR FROM date::date) = %s
+        GROUP BY month 
         ORDER BY month
-    """)
+    """, (selected_year,))
     monthly_data = cursor.fetchall()
 
     conn.close()
@@ -1509,10 +1522,11 @@ def admin_stats():
     return render_template(
         'admin_stats.html',
         daily_data=daily_data,
-        monthly_data=monthly_data
+        monthly_data=monthly_data,
+        available_years=available_years,
+        selected_month=selected_month,
+        selected_year=selected_year
     )
-
-
 
 
 @app.route('/admin_history/export', methods=['POST'])
