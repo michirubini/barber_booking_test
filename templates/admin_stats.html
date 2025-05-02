@@ -20,6 +20,7 @@
       gap: 10px;
       align-items: center;
       margin-bottom: 30px;
+      flex-wrap: wrap;
     }
     select, button {
       padding: 5px 10px;
@@ -47,6 +48,13 @@
         {% for y in available_years %}
           <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
         {% endfor %}
+      </select>
+
+      <label for="tipo">Tipo:</label>
+      <select name="tipo" id="tipo">
+        <option value="tutti" {% if selected_tipo == 'tutti' %}selected{% endif %}>Tutti</option>
+        <option value="barbiere" {% if selected_tipo == 'barbiere' %}selected{% endif %}>Barbiere</option>
+        <option value="parrucchiera" {% if selected_tipo == 'parrucchiera' %}selected{% endif %}>Parrucchiera</option>
       </select>
 
       <button type="submit">Filtra</button>
@@ -97,4 +105,6 @@
   </script>
 </body>
 </html>
+
+
 

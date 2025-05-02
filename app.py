@@ -1481,41 +1481,47 @@ def admin_stats():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
+    from datetime import datetime
     conn = get_connection()
     cursor = conn.cursor()
 
-    # === Ricava anni disponibili ===
-    cursor.execute("SELECT DISTINCT EXTRACT(YEAR FROM date::date)::int FROM appointments ORDER BY 1")
-    available_years = [int(r[0]) for r in cursor.fetchall()]
-
-    # === Imposta mese/anno corrente di default ===
+    # 🗓️ Anno e mese selezionati
     today = datetime.today()
-    selected_month = today.month
     selected_year = today.year
+    selected_month = today.month
+    selected_tipo = 'tutti'
 
     if request.method == 'POST':
-        selected_month = int(request.form.get('month', today.month))
-        selected_year = int(request.form.get('year', today.year))
+        selected_month = int(request.form.get('month', selected_month))
+        selected_year = int(request.form.get('year', selected_year))
+        selected_tipo = request.form.get('tipo', 'tutti')
 
-    # === Appuntamenti filtrati per giorno ===
+    # 📆 Giorni del mese corrente filtrati
     cursor.execute("""
-        SELECT date::date, COUNT(*) 
+        SELECT TO_CHAR(DATE(date), 'YYYY-MM-DD') as giorno, COUNT(*) 
         FROM appointments 
-        WHERE EXTRACT(MONTH FROM date::date) = %s AND EXTRACT(YEAR FROM date::date) = %s
-        GROUP BY date::date 
-        ORDER BY date::date
-    """, (selected_month, selected_year))
+        WHERE EXTRACT(MONTH FROM date::date) = %s
+          AND EXTRACT(YEAR FROM date::date) = %s
+          AND (%s = 'tutti' OR tipo = %s)
+        GROUP BY giorno
+        ORDER BY giorno
+    """, (selected_month, selected_year, selected_tipo, selected_tipo))
     daily_data = cursor.fetchall()
 
-    # === Appuntamenti per mese dell'anno corrente ===
+    # 📊 Appuntamenti per mese dell’anno selezionato
     cursor.execute("""
-        SELECT TO_CHAR(date::date, 'YYYY-MM') as month, COUNT(*) 
+        SELECT TO_CHAR(date::date, 'YYYY-MM') as mese, COUNT(*) 
         FROM appointments 
         WHERE EXTRACT(YEAR FROM date::date) = %s
-        GROUP BY month 
-        ORDER BY month
-    """, (selected_year,))
+          AND (%s = 'tutti' OR tipo = %s)
+        GROUP BY mese
+        ORDER BY mese
+    """, (selected_year, selected_tipo, selected_tipo))
     monthly_data = cursor.fetchall()
+
+    # 📅 Anni disponibili (per i filtri)
+    cursor.execute("SELECT DISTINCT EXTRACT(YEAR FROM date::date)::int FROM appointments ORDER BY 1 DESC")
+    available_years = [int(r[0]) for r in cursor.fetchall()]
 
     conn.close()
 
@@ -1523,9 +1529,10 @@ def admin_stats():
         'admin_stats.html',
         daily_data=daily_data,
         monthly_data=monthly_data,
-        available_years=available_years,
         selected_month=selected_month,
-        selected_year=selected_year
+        selected_year=selected_year,
+        selected_tipo=selected_tipo,
+        available_years=available_years
     )
 
 

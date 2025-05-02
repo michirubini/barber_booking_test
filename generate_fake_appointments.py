@@ -13,7 +13,8 @@ conn = psycopg2.connect(
 cursor = conn.cursor()
 
 # Servizi e orari possibili
-servizi = ["Taglio di capelli", "Solo Barba", "Taglio di capelli + Barba"]
+servizi_barbiere = ["Taglio di capelli", "Solo Barba", "Taglio di capelli + Barba"]
+servizi_parrucchiera = ["Piega", "Colore", "Taglio donna", "Meches", "Balayage"]
 orari = [
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
@@ -21,6 +22,7 @@ orari = [
     "18:00", "18:30"
 ]
 barbieri = ["Mattia", "Achille"]
+parrucchiere = ["Francesca", "Giulia"]
 
 # Prendi gli utenti con newsletter attiva
 cursor.execute("SELECT id, name, surname FROM users WHERE newsletter_optin = 1")
@@ -32,22 +34,29 @@ for user_id, name, surname in utenti:
     for _ in range(num_appuntamenti):
         # 50% possibilità che sia nel futuro, 50% nel passato
         if random.random() < 0.5:
-            giorni_offset = random.randint(1, 30)  # futuro
+            giorni_offset = random.randint(1, 30)
             data_app = (datetime.now() + timedelta(days=giorni_offset)).strftime('%Y-%m-%d')
         else:
-            giorni_offset = random.randint(5, 60)  # passato
+            giorni_offset = random.randint(5, 60)
             data_app = (datetime.now() - timedelta(days=giorni_offset)).strftime('%Y-%m-%d')
 
         ora_app = random.choice(orari)
-        servizio = random.choice(servizi)
-        barbiere = random.choice(barbieri)
+
+        # Scegli casualmente se barbiere o parrucchiera
+        tipo = random.choice(["barbiere", "parrucchiera"])
+        if tipo == "barbiere":
+            servizio = random.choice(servizi_barbiere)
+            operatore = random.choice(barbieri)
+        else:
+            servizio = random.choice(servizi_parrucchiera)
+            operatore = random.choice(parrucchiere)
 
         try:
             cursor.execute("""
                 INSERT INTO appointments (user_id, date, time, service, barber, tipo)
-                VALUES (%s, %s, %s, %s, %s, 'barbiere')
-            """, (user_id, data_app, ora_app, servizio, barbiere))
-            print(f"✔️ Aggiunto: {name} {surname} → {data_app} {ora_app} – {servizio}")
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (user_id, data_app, ora_app, servizio, operatore, tipo))
+            print(f"✔️ {tipo.upper()} – {name} {surname} → {data_app} {ora_app} – {servizio}")
             count += 1
         except Exception as e:
             print(f"⚠️ Errore: {e}")
@@ -55,4 +64,5 @@ for user_id, name, surname in utenti:
 conn.commit()
 conn.close()
 print(f"\n✅ Appuntamenti finti aggiunti: {count}")
+
 
