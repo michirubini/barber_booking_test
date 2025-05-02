@@ -1439,7 +1439,7 @@ def admin_history():
                appointments.service, appointments.date, appointments.time 
         FROM appointments 
         JOIN users ON appointments.user_id = users.id
-        WHERE appointments.date < date('now')
+        WHERE TO_DATE(appointments.date, 'YYYY-MM-DD') < CURRENT_DATE
     """
     params = []
 
@@ -1450,23 +1450,23 @@ def admin_history():
         filters['search'] = request.form.get('search', '')
 
         if filters['start_date']:
-            query += " AND appointments.date >= ?"
+            query += " AND TO_DATE(appointments.date, 'YYYY-MM-DD') >= %s"
             params.append(filters['start_date'])
 
         if filters['end_date']:
-            query += " AND appointments.date <= ?"
+            query += " AND TO_DATE(appointments.date, 'YYYY-MM-DD') <= %s"
             params.append(filters['end_date'])
 
         if filters['service']:
-            query += " AND appointments.service = ?"
+            query += " AND appointments.service = %s"
             params.append(filters['service'])
 
         if filters['search']:
-            query += " AND (users.name LIKE ? OR users.surname LIKE ? OR users.phone LIKE ?)"
+            query += " AND (users.name ILIKE %s OR users.surname ILIKE %s OR users.phone ILIKE %s)"
             like = f"%{filters['search']}%"
             params.extend([like, like, like])
 
-    query += " ORDER BY DATE(appointments.date) DESC, TIME(appointments.time) DESC"
+    query += " ORDER BY TO_DATE(appointments.date, 'YYYY-MM-DD') DESC, appointments.time DESC"
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -1475,6 +1475,8 @@ def admin_history():
     conn.close()
 
     return render_template('admin_history.html', appointments=appointments, filters=filters)
+
+
 
 @app.route('/admin_stats', methods=['GET', 'POST'])
 def admin_stats():
