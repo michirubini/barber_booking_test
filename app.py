@@ -795,39 +795,32 @@ def admin_dashboard():
     if 'admin' not in session:
         return redirect(url_for('login_admin'))
 
-    # Numero di appuntamenti per pagina
-    per_page = 50
-    page = int(request.args.get('page', 1))
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
     offset = (page - 1) * per_page
-
-    today = datetime.now().strftime("%Y-%m-%d")
 
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Conta totale appuntamenti futuri
     cursor.execute("""
-        SELECT COUNT(*) 
-        FROM appointments 
-        WHERE date >= %s
-    """, (today,))
-    total_appointments = cursor.fetchone()[0]
+        SELECT COUNT(*) FROM appointments
+        WHERE TO_DATE(date, 'YYYY-MM-DD') >= CURRENT_DATE
+    """)
+    total = cursor.fetchone()[0]
+    total_pages = (total + per_page - 1) // per_page
 
-    # Prendi appuntamenti paginati
     cursor.execute("""
         SELECT appointments.id, users.username, users.name, users.surname, users.phone,
                appointments.service, appointments.date, appointments.time, appointments.barber
-        FROM appointments 
+        FROM appointments
         JOIN users ON appointments.user_id = users.id
-        WHERE appointments.date >= %s
-        ORDER BY appointments.date::date, appointments.time::time
+        WHERE TO_DATE(appointments.date, 'YYYY-MM-DD') >= CURRENT_DATE
+        ORDER BY TO_DATE(appointments.date, 'YYYY-MM-DD') ASC, appointments.time ASC
         LIMIT %s OFFSET %s
-    """, (today, per_page, offset))
+    """, (per_page, offset))
     appointments = cursor.fetchall()
 
     conn.close()
-
-    total_pages = (total_appointments + per_page - 1) // per_page
 
     return render_template(
         'admin_dashboard.html',
@@ -835,6 +828,8 @@ def admin_dashboard():
         page=page,
         total_pages=total_pages
     )
+
+
 
 
 @app.route('/book', methods=['GET', 'POST'])
@@ -1545,10 +1540,10 @@ def export_history_csv():
 
     query = """
         SELECT appointments.id, users.username, users.name, users.surname, users.phone,
-               appointments.service, appointments.date, appointments.time 
+               appointments.service, appointments.date, appointments.time, appointments.tipo
         FROM appointments 
         JOIN users ON appointments.user_id = users.id
-        WHERE appointments.date < date('now')
+        WHERE TO_DATE(appointments.date, 'YYYY-MM-DD') < CURRENT_DATE
     """
     params = []
 
@@ -1556,26 +1551,31 @@ def export_history_csv():
     start_date = request.form.get('start_date', '')
     end_date = request.form.get('end_date', '')
     service = request.form.get('service', '')
+    tipo = request.form.get('tipo', '')  # tipo = barbiere/parrucchiera
     search = request.form.get('search', '')
 
     if start_date:
-        query += " AND appointments.date >= ?"
+        query += " AND TO_DATE(appointments.date, 'YYYY-MM-DD') >= %s"
         params.append(start_date)
 
     if end_date:
-        query += " AND appointments.date <= ?"
+        query += " AND TO_DATE(appointments.date, 'YYYY-MM-DD') <= %s"
         params.append(end_date)
 
     if service:
-        query += " AND appointments.service = ?"
+        query += " AND appointments.service = %s"
         params.append(service)
 
+    if tipo:
+        query += " AND appointments.tipo = %s"
+        params.append(tipo)
+
     if search:
-        query += " AND (users.name LIKE ? OR users.surname LIKE ? OR users.phone LIKE ?)"
+        query += " AND (users.name ILIKE %s OR users.surname ILIKE %s OR users.phone ILIKE %s)"
         like = f"%{search}%"
         params.extend([like, like, like])
 
-    query += " ORDER BY DATE(appointments.date) DESC, TIME(appointments.time) DESC"
+    query += " ORDER BY TO_DATE(appointments.date, 'YYYY-MM-DD') DESC, appointments.time DESC"
 
     # Esegui query
     conn = get_connection()
@@ -1587,11 +1587,11 @@ def export_history_csv():
     # Genera CSV
     import csv
     from io import StringIO
-    from flask import make_response # type: ignore
+    from flask import make_response
 
     si = StringIO()
     writer = csv.writer(si)
-    writer.writerow(['ID', 'Username', 'Nome', 'Cognome', 'Telefono', 'Servizio', 'Data', 'Ora'])
+    writer.writerow(['ID', 'Username', 'Nome', 'Cognome', 'Telefono', 'Servizio', 'Data', 'Ora', 'Tipo'])
 
     for row in rows:
         writer.writerow(row)
@@ -1600,6 +1600,7 @@ def export_history_csv():
     output.headers["Content-Disposition"] = "attachment; filename=storico_appuntamenti.csv"
     output.headers["Content-type"] = "text/csv"
     return output
+
 
 @app.route('/logout')
 def logout():
