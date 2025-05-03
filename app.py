@@ -235,14 +235,7 @@ def reset_password():
         conn.close()
         return render_template("reset_password.html", error="Token non valido.", show_form=False)
 
-    user_id, expires_at_str, used = token_data
-
-    # Conversione data token
-    try:
-        expires_at = datetime.fromisoformat(expires_at_str)
-    except ValueError:
-        conn.close()
-        return render_template("reset_password.html", error="Errore nella validità del token.", show_form=False)
+    user_id, expires_at, used = token_data  # ✅ ora expires_at è già datetime
 
     if used:
         conn.close()
