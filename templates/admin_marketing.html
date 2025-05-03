@@ -69,9 +69,13 @@
 
       <label for="subject">Oggetto:</label>
       <input type="text" name="subject" required>
-
+      
       <label for="message">Messaggio:</label>
       <textarea name="message" rows="6" placeholder="Scrivi il contenuto dell'email qui..." required></textarea>
+      
+      <label for="manual_email">📧 Invia a un indirizzo specifico (opzionale):</label>
+      <input type="email" name="manual_email" placeholder="es. test@email.com">
+      
 
       <h3>Utenti trovati: {{ users|length }}</h3>
 

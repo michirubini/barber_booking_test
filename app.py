@@ -624,7 +624,12 @@ def admin_marketing():
 
         subject = request.form.get('subject')
         message = request.form.get('message')
-        selected_emails = request.form.getlist('selected_users')
+        manual_email = request.form.get('manual_email')
+
+        if manual_email:
+            selected_emails = [manual_email]
+        else:
+            selected_emails = request.form.getlist('selected_users')
 
         success = 0
         for email in selected_emails:
@@ -653,16 +658,16 @@ def admin_marketing():
 
             cursor.execute("""
                 SELECT u.name || ' ' || u.surname, u.email,
-                       ROUND(julianday('now') - julianday(a.last_date)) as giorni_passati
+                       ROUND(EXTRACT(DAY FROM NOW() - a.last_date::date)) AS giorni_passati
                 FROM users u
                 JOIN (
-                    SELECT user_id, MAX(date) as last_date
+                    SELECT user_id, MAX(date) AS last_date
                     FROM appointments
                     GROUP BY user_id
                 ) a ON u.id = a.user_id
                 WHERE u.newsletter_optin = 1
-                AND julianday('now') - julianday(a.last_date) >= %s
-                AND julianday('now') - julianday(a.last_date) < %s
+                AND EXTRACT(DAY FROM NOW() - a.last_date::date) >= %s
+                AND EXTRACT(DAY FROM NOW() - a.last_date::date) < %s
             """, (min_days, max_days))
             users = cursor.fetchall()
 
