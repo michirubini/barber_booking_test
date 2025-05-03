@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Statistiche Appuntamenti</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -11,10 +12,12 @@
       margin: auto;
       padding: 20px;
     }
+
     canvas {
       max-width: 100%;
       margin-bottom: 40px;
     }
+
     form.filter-form {
       display: flex;
       gap: 10px;
@@ -22,8 +25,25 @@
       margin-bottom: 30px;
       flex-wrap: wrap;
     }
+
     select, button {
       padding: 5px 10px;
+    }
+
+    /* ✅ Mobile responsiveness */
+    @media (max-width: 600px) {
+      form.filter-form {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      select, button {
+        width: 100%;
+      }
+
+      button {
+        margin-top: 10px;
+      }
     }
   </style>
 </head>
@@ -105,6 +125,7 @@
   </script>
 </body>
 </html>
+
 
 
 

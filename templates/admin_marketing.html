@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Marketing – Invia Email</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
@@ -12,11 +13,37 @@
       border-radius: 5px;
       background-color: #f9f9f9;
     }
+
     .email-preview ul {
       list-style: disc;
       padding-left: 20px;
       max-height: 150px;
       overflow-y: auto;
+    }
+
+    /* ✅ Mobile responsiveness */
+    @media (max-width: 600px) {
+      form input[type="text"],
+      form input[type="number"],
+      form textarea,
+      form button,
+      .big-btn {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      form label {
+        display: block;
+        margin-top: 10px;
+      }
+
+      #toggleBtn {
+        width: 100%;
+      }
+
+      .email-preview {
+        font-size: 0.95em;
+      }
     }
   </style>
 </head>
@@ -111,5 +138,6 @@
   </script>
 </body>
 </html>
+
 
 
