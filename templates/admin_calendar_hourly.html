@@ -49,6 +49,33 @@
     .slot-entry.empty { background-color: #e6ffe6; font-style: italic; color: #666; position: relative; }
     .slot-entry.empty.disabled { background-color: #f0f0f0; color: #999; cursor: not-allowed; }
     .slot-entry.empty.disabled a { display: none; }
+    /* ✅ FIX responsive calendario parrucchiera */
+.calendar-wrapper {
+  overflow-x: auto;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(45px, 1fr));
+  gap: 5px;
+  min-width: 315px; /* 45px × 7 */
+}
+
+@media (max-width: 600px) {
+  .calendar-day {
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  .calendar-controls {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .container {
+    padding: 10px;
+  }
+}
   </style>
 </head>
 <body>
@@ -62,7 +89,9 @@
     <div class="day-labels">
       <div>Lun</div><div>Mar</div><div>Mer</div><div>Gio</div><div>Ven</div><div>Sab</div><div>Dom</div>
     </div>
-    <div id="admin-calendar" class="calendar"></div>
+    <div class="calendar-wrapper">
+      <div id="admin-calendar" class="calendar"></div>
+    </div>    
     <h3 id="selected-date-label">Seleziona un giorno</h3>
     <div id="admin-slots"></div>
   </div>
