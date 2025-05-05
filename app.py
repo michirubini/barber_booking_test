@@ -5,8 +5,15 @@ import uuid
 import re
 import os
 
+from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import sql
+
+# Carica automaticamente il file .env.local se esiste, altrimenti usa .env.production (Render)
+if os.path.exists(".env.local"):
+    load_dotenv(".env.local")
+else:
+    load_dotenv(".env.production")
 
 def get_connection():
     return psycopg2.connect(
@@ -19,6 +26,7 @@ def get_connection():
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
+
 
 # ---------- INIZIALIZZAZIONE DB ----------
 
@@ -1740,10 +1748,10 @@ def admin_book():
     # GET: Form iniziale
     return render_template('admin_book.html', date=date, time=time)
 
-
-
 if __name__ == '__main__':
+    init_db()          # 👉 crea le tabelle se non esistono
     app.run(debug=True)
+
 
     #ciao csao mi racconti?
 
