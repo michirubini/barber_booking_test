@@ -1,20 +1,27 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify # type: ignore
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify  # type: ignore
 from datetime import datetime, timedelta
 import bcrypt
 import uuid
 import re
+import os
 
 import psycopg2
 from psycopg2 import sql
 
 def get_connection():
     return psycopg2.connect(
-        dbname="barber_booking",
-        user="postgres",
-        password="admin", 
-        host="localhost",
-        port="5432"
+        dbname=os.getenv("DB_NAME", "barber_booking"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", "admin"),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432")
     )
+
+app = Flask(__name__)
+app.secret_key = 'supersecretkey'
+
+# ---------- INIZIALIZZAZIONE DB ----------
+
 
 
 
