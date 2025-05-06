@@ -16,37 +16,11 @@ if os.path.exists(".env.local"):
 else:
     load_dotenv(".env.production")
 
-# Funzione per connettersi al database PostgreSQL con SSL
+# Funzione per connettersi al database PostgreSQL utilizzando l'URL di connessione
 def get_connection():
     try:
-        # Usare la modalità 'require' per SSL
-        conn = psycopg2.connect(
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            sslmode='require'  # Forza SSL in modalità richiesta
-        )
-        print("✅ Connessione al database riuscita.")
-        return conn
-    except Exception as e:
-        print(f"❌ Errore nella connessione al database: {e}")
-        raise
-
-
-
-        
-        # Crea la connessione al database PostgreSQL
-        conn = psycopg2.connect(
-            dbname=db_name,
-            user=db_user,
-            password=db_password,
-            host=db_host,
-            port=db_port,
-            sslmode='require'  # Connessione SSL richiesta per il database
-        )
-        
+        # Usa l'URL di connessione da variabile d'ambiente
+        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
         print("✅ Connessione al database riuscita.")
         return conn
     except Exception as e:
@@ -55,20 +29,14 @@ def get_connection():
 
 # Inizializza l'app Flask
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecretkey")  # Assicurati di avere anche un secret_key per Flask nel .env
+
+# Carica la chiave segreta da variabile d'ambiente, altrimenti usa un valore di default
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecretkey")
 
 # Aggiungi qui le altre rotte, funzionalità, ecc.
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
-
-app = Flask(__name__)
-app.secret_key = 'supersecretkey'
-
-# Aggiungi il codice per il resto dell'applicazione Flask (rotte, gestione utenti, ecc.)
-
 
 
 # ---------- INIZIALIZZAZIONE DB ----------
