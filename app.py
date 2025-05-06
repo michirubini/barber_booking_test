@@ -9,12 +9,8 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import sql
 
-# Carica automaticamente il file .env.local se esiste, altrimenti usa .env.production (Render)
-# Verifica se esiste un file .env locale e carica le variabili d'ambiente
-if os.path.exists(".env.local"):
-    load_dotenv(".env.local")
-else:
-    load_dotenv(".env.production")
+# Carica il file .env.production per la configurazione dell'app
+load_dotenv(".env.production")  # Carica direttamente il file .env.production
 
 # Funzione per connettersi al database PostgreSQL utilizzando l'URL di connessione
 def get_connection():
@@ -26,6 +22,18 @@ def get_connection():
     except Exception as e:
         print(f"❌ Errore nella connessione al database: {e}")
         raise
+
+# Inizializza l'app Flask
+app = Flask(__name__)
+
+# Carica la chiave segreta da variabile d'ambiente, altrimenti usa un valore di default
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecretkey")
+
+# Aggiungi qui le altre rotte, funzionalità, ecc.
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
 
 # Inizializza l'app Flask
 app = Flask(__name__)
