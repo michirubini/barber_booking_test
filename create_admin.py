@@ -3,7 +3,7 @@ import psycopg2
 
 def get_connection():
     return psycopg2.connect(
-        dbname="postgres",
+        dbname="barberdb",
         user="postgres",
         password="admin",
         host="localhost",

@@ -37,19 +37,9 @@ def create_tables():
     );
     """)
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS password_tokens (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id),
-        token TEXT NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        used INTEGER DEFAULT 0
-    );
-    """)
-
     conn.commit()
     conn.close()
-    print("✅ Tabelle PostgreSQL create con successo.")
+    print("✅ Tabelle create con successo.")
 
 if __name__ == '__main__':
     create_tables()

@@ -4,7 +4,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 try:
     # Connessione al server PostgreSQL (ma non a un db specifico)
     conn = psycopg2.connect(
-        dbname='postgres',
+        dbname='barberdb',
         user='postgres',
         password='admin',
         host='localhost'
