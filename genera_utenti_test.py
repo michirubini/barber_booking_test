@@ -3,7 +3,7 @@ import random
 
 # Connessione al database PostgreSQL
 conn = psycopg2.connect(
-    dbname="barber_booking",
+    dbname="postgres",
     user="postgres",
     password="admin",
     host="localhost",

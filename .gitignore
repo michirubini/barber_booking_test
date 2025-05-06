@@ -1,3 +1,4 @@
-# Ignora tutti i file di ambiente
+#ignorare
 .env
-.env.*
+.env.local
+.env.production
