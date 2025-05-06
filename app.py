@@ -10,6 +10,7 @@ import psycopg2
 from psycopg2 import sql
 
 # Carica automaticamente il file .env.local se esiste, altrimenti usa .env.production (Render)
+# Verifica se esiste un file .env locale e carica le variabili d'ambiente
 if os.path.exists(".env.local"):
     load_dotenv(".env.local")
 else:
@@ -18,19 +19,40 @@ else:
 # Funzione per connettersi al database PostgreSQL con SSL
 def get_connection():
     try:
+        # Controlla se tutte le variabili d'ambiente sono caricate correttamente
+        db_name = os.getenv("DB_NAME")
+        db_user = os.getenv("DB_USER")
+        db_password = os.getenv("DB_PASSWORD")
+        db_host = os.getenv("DB_HOST")
+        db_port = os.getenv("DB_PORT")
+
+        if not all([db_name, db_user, db_password, db_host, db_port]):
+            raise ValueError("Una o più variabili d'ambiente non sono state configurate correttamente.")
+        
+        # Crea la connessione al database PostgreSQL
         conn = psycopg2.connect(
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            sslmode='prefer'  # Try 'prefer' or 'disable' if 'required' fails
+            dbname=db_name,
+            user=db_user,
+            password=db_password,
+            host=db_host,
+            port=db_port,
+            sslmode='require'  # Connessione SSL richiesta per il database
         )
+        
         print("✅ Connessione al database riuscita.")
         return conn
     except Exception as e:
         print(f"❌ Errore nella connessione al database: {e}")
         raise
+
+# Inizializza l'app Flask
+app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecretkey")  # Assicurati di avere anche un secret_key per Flask nel .env
+
+# Aggiungi qui le altre rotte, funzionalità, ecc.
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 
 
