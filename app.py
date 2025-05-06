@@ -9,18 +9,14 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import sql
 
-from dotenv import load_dotenv
-
-# Carica il file .env.production
-load_dotenv(".env.production")  # O usa ".env.local" se preferisci il file locale
-
-# Carica il file .env.production per la configurazione dell'app
+# Carica il file .env.production se disponibile, altrimenti .env.local
+# Carica automaticamente la configurazione delle variabili d'ambiente
 load_dotenv(".env.production")  # Carica direttamente il file .env.production
 
 # Funzione per connettersi al database PostgreSQL utilizzando l'URL di connessione
 def get_connection():
     try:
-        # Usa l'URL completo di connessione da DATABASE_URL
+        # Usa l'URL completo di connessione da DATABASE_URL, con SSL abilitato
         conn = psycopg2.connect(os.getenv("DATABASE_URL"), sslmode='require')  # SSL è richiesto da Render
         print("✅ Connessione al database riuscita.")
         return conn
@@ -28,11 +24,10 @@ def get_connection():
         print(f"❌ Errore nella connessione al database: {e}")
         raise
 
-
 # Inizializza l'app Flask
 app = Flask(__name__)
 
-# Carica la chiave segreta da variabile d'ambiente, altrimenti usa un valore di default
+# Carica la chiave segreta per Flask dal file .env, altrimenti usa un valore di default
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecretkey")
 
 # Aggiungi qui le altre rotte, funzionalità, ecc.
@@ -40,17 +35,6 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecretkey")
 if __name__ == "__main__":
     app.run(debug=True)
 
-
-# Inizializza l'app Flask
-app = Flask(__name__)
-
-# Carica la chiave segreta da variabile d'ambiente, altrimenti usa un valore di default
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecretkey")
-
-# Aggiungi qui le altre rotte, funzionalità, ecc.
-
-if __name__ == "__main__":
-    app.run(debug=True)
 
 
 # ---------- INIZIALIZZAZIONE DB ----------
