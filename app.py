@@ -16,13 +16,20 @@ else:
     load_dotenv(".env.production")
 
 def get_connection():
-    return psycopg2.connect(
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT")
-    )
+    try:
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT")
+        )
+        print("✅ Connessione al database riuscita.")
+        return conn
+    except Exception as e:
+        print(f"❌ Errore nella connessione al database: {e}")
+        raise
+
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
@@ -206,20 +213,29 @@ def login_admin():
         username = request.form['username']
         password = request.form['password']
 
-        conn = get_connection()
-        cursor = conn.cursor()
+        print(f"🔍 Tentativo login per username: {username}")  # Aggiungi un log per vedere cosa viene inviato
 
-        # Recupera l'admin (id, username, password_hash)
-        cursor.execute("SELECT id, username, password FROM admins WHERE username = %s", (username,))
-        admin = cursor.fetchone()
-        conn.close()
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
 
-        # Se trovato e la password combacia
-        if admin and bcrypt.checkpw(password.encode('utf-8'), admin[2].encode('utf-8')):
-            session['admin'] = admin[0]
-            return redirect(url_for('admin_dashboard'))
-        else:
-            error = "Credenziali non valide"
+            cursor.execute("SELECT id, username, password FROM admins WHERE username = %s", (username,))
+            admin = cursor.fetchone()
+            conn.close()
+
+            if admin:
+                print(f"Admin trovato: {admin}")  # Verifica che l'admin sia trovato
+
+            # Se trovato e la password combacia
+            if admin and bcrypt.checkpw(password.encode('utf-8'), admin[2].encode('utf-8')):
+                session['admin'] = admin[0]
+                return redirect(url_for('admin_dashboard'))
+            else:
+                error = "Credenziali non valide"
+
+        except Exception as e:
+            error = f"Errore durante il login: {str(e)}"  # Aggiungi messaggio di errore
+            print(f"❌ Errore durante il login: {e}")
 
     return render_template('login_admin.html', error=error)
 
