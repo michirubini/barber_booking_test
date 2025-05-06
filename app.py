@@ -24,7 +24,7 @@ def get_connection():
             password=os.getenv("DB_PASSWORD"),
             host=os.getenv("DB_HOST", "localhost"),
             port=os.getenv("DB_PORT", "5432"),
-            sslmode='disable'  # Aggiungi questa riga per disabilitare SSL
+            sslmode='required'  # Aggiungi questa riga per disabilitare SSL
         )
         print("✅ Connessione al database riuscita.")
         return conn
