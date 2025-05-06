@@ -9,19 +9,25 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import sql
 
+from dotenv import load_dotenv
+
+# Carica il file .env.production
+load_dotenv(".env.production")  # O usa ".env.local" se preferisci il file locale
+
 # Carica il file .env.production per la configurazione dell'app
 load_dotenv(".env.production")  # Carica direttamente il file .env.production
 
 # Funzione per connettersi al database PostgreSQL utilizzando l'URL di connessione
 def get_connection():
     try:
-        # Usa l'URL di connessione da variabile d'ambiente
-        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        # Usa l'URL completo di connessione da DATABASE_URL
+        conn = psycopg2.connect(os.getenv("DATABASE_URL"), sslmode='require')  # SSL è richiesto da Render
         print("✅ Connessione al database riuscita.")
         return conn
     except Exception as e:
         print(f"❌ Errore nella connessione al database: {e}")
         raise
+
 
 # Inizializza l'app Flask
 app = Flask(__name__)
