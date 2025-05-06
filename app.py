@@ -15,6 +15,7 @@ if os.path.exists(".env.local"):
 else:
     load_dotenv(".env.production")
 
+# Funzione per connettersi al database PostgreSQL con SSL
 def get_connection():
     try:
         conn = psycopg2.connect(
@@ -22,7 +23,8 @@ def get_connection():
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
             host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT")
+            port=os.getenv("DB_PORT"),
+            sslmode='require'  # Aggiungi questa riga per abilitare SSL
         )
         print("✅ Connessione al database riuscita.")
         return conn
@@ -33,6 +35,9 @@ def get_connection():
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
+
+# Aggiungi il codice per il resto dell'applicazione Flask (rotte, gestione utenti, ecc.)
+
 
 
 # ---------- INIZIALIZZAZIONE DB ----------
