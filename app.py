@@ -19,15 +19,23 @@ else:
 # Funzione per connettersi al database PostgreSQL con SSL
 def get_connection():
     try:
-        # Controlla se tutte le variabili d'ambiente sono caricate correttamente
-        db_name = os.getenv("DB_NAME")
-        db_user = os.getenv("DB_USER")
-        db_password = os.getenv("DB_PASSWORD")
-        db_host = os.getenv("DB_HOST")
-        db_port = os.getenv("DB_PORT")
+        # Usare la modalità 'require' per SSL
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            sslmode='require'  # Forza SSL in modalità richiesta
+        )
+        print("✅ Connessione al database riuscita.")
+        return conn
+    except Exception as e:
+        print(f"❌ Errore nella connessione al database: {e}")
+        raise
 
-        if not all([db_name, db_user, db_password, db_host, db_port]):
-            raise ValueError("Una o più variabili d'ambiente non sono state configurate correttamente.")
+
+
         
         # Crea la connessione al database PostgreSQL
         conn = psycopg2.connect(
